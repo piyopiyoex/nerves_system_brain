@@ -1,0 +1,61 @@
+#!/bin/sh
+# USB NCM gadget for SHARP Brain (Nerves port, v2).
+# - Nerves busybox has no `ln`: use the static /usr/bin/lns helper instead.
+# - Runs early from erlinit --pre-run-exec, so wait for the UDC to finish
+#   probing (it is still deferred at ~3s after boot) and take its real name
+#   from /sys/class/udc instead of hardcoding it.
+
+g=/sys/kernel/config/usb_gadget/eth
+[ -d "$g" ] && exit 0
+
+mkdir "$g" || exit 1
+
+echo "0x0200" > "$g"/bcdUSB
+echo "0x0200" > "$g"/bcdDevice
+
+mkdir -p "$g"/strings/0x409
+echo "0123456789" > "$g"/strings/0x409/serialnumber
+echo "SHARP" > "$g"/strings/0x409/manufacturer
+echo "Brain (Nerves)" > "$g"/strings/0x409/product
+
+mkdir -p "$g"/configs/c.1/strings/0x409
+echo "NCM Config" > "$g"/configs/c.1/strings/0x409/configuration
+echo 250 > "$g"/configs/c.1/MaxPower
+
+mkdir "$g"/functions/ncm.usb0
+echo "8a:15:8b:44:3a:02" > "$g"/functions/ncm.usb0/dev_addr
+echo "8a:15:8b:44:3a:01" > "$g"/functions/ncm.usb0/host_addr
+
+lns "$g"/functions/ncm.usb0 "$g"/configs/c.1/ncm.usb0
+
+# Wait for a UDC to appear (up to 30s), then bind to it by its real name
+n=0
+udc=
+while [ -z "$udc" ] && [ "$n" -lt 30 ]; do
+    for u in /sys/class/udc/*; do
+        [ -e "$u" ] && udc=${u##*/} && break
+    done
+    if [ -z "$udc" ]; then
+        sleep 1
+        n=$((n + 1))
+    fi
+done
+if [ -z "$udc" ]; then
+    echo "enable_ethernet_gadget: no UDC appeared - diag follows"
+    dmesg | grep -iE 'ci_hdrc|chipidea|udc|otg|usbphy|mxs.phy|deferred'
+    {
+        echo "=== ls /sys/class/udc ==="
+        ls /sys/class/udc
+        echo "=== dmesg (usb/phy) ==="
+        dmesg | grep -iE 'ci_hdrc|chipidea|udc|otg|usb|phy'
+        echo "=== full dmesg ==="
+        dmesg
+    } > /root/gadget_diag.log 2>&1
+    exit 1
+fi
+
+echo "$udc" > "$g"/UDC
+
+sleep 1
+ip link set usb0 up
+ip addr add 10.42.0.2/24 dev usb0
