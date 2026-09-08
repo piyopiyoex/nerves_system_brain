@@ -1,0 +1,7 @@
+#!/bin/sh
+# Combined network bring-up called from erlinit --pre-run-exec.
+# Both sub-scripts background their (slow) work and return immediately, so this
+# returns immediately too -> Erlang/KIOSK start right away, net comes up async.
+/usr/bin/enable_wired_lan
+/usr/bin/enable_wifi
+exit 0

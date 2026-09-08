@@ -1,0 +1,45 @@
+#!/bin/sh
+# Wired LAN bring-up for SHARP Brain PW-SH6 (Nerves port).
+# usb0 is dr_mode=host in the DTB, so a USB-Ethernet adapter (on a powered hub)
+# enumerates as a normal NIC. Get a DHCP lease via busybox udhcpc.
+#
+# IMPORTANT: this runs from erlinit --pre-run-exec, which BLOCKS boot until it
+# returns. So the whole (slow) bring-up runs in the background and we exit 0
+# immediately -> Erlang/KIOSK start right away, networking comes up async.
+log=/root/wired_lan.log
+echo "enable_wired_lan start uptime=$(cat /proc/uptime 2>/dev/null)" > "$log"
+
+{
+    # wait up to 30s for the USB-Ethernet interface (skip lo and sit0)
+    iface=
+    n=0
+    while [ -z "$iface" ] && [ "$n" -lt 30 ]; do
+        for d in /sys/class/net/*; do
+            name=${d##*/}
+            [ "$name" = "lo" ] && continue
+            [ -e "$d/device" ] || continue
+            iface=$name
+            break
+        done
+        [ -z "$iface" ] && { sleep 1; n=$((n + 1)); }
+    done
+
+    echo after wait ${n}s: ifaces=$(ls /sys/class/net 2>/dev/null) >> "$log"
+
+    if [ -z "$iface" ]; then
+        echo "NO ethernet interface found" >> "$log"
+        dmesg 2>/dev/null | grep -iE 'ci_hdrc|chipidea|udc|otg|usb|ax88|cdc_|eth|phy|vbus' >> "$log"
+        exit 0
+    fi
+
+    echo "iface=$iface" >> "$log"
+    ip link set "$iface" up
+    sleep 1
+    # -b: go to background if no lease yet; also background the whole thing via &
+    udhcpc -i "$iface" -b -s /usr/share/udhcpc/wired.script >> "$log" 2>&1
+    echo "udhcpc returned rc=$?" >> "$log"
+    sleep 3
+    ip addr show "$iface" >> "$log" 2>&1
+} </dev/null >>"$log" 2>&1 &
+
+exit 0
