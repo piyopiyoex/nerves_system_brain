@@ -10,7 +10,7 @@
 #   2. 使わない拠点は、その network={} ブロックを丸ごと削除 or 行頭に # を付ける
 #   3. これで完了。起動時に erlinit --pre-run-exec /usr/bin/enable_net が
 #      enable_wired_lan と enable_wifi を自動起動し、wlan0 は wpa_supplicant で
-#      関連付け→udhcpc(wifi.script)で DHCP 取得する(手動操作は不要)。
+#      関連付け→udhcpc(wifi.script)で DHCP 取得する（手動操作は不要）。
 #
 # パスワードを平文で置きたくない場合:
 #   母艦で  wpa_passphrase "SSID名" "パスワード"  を実行し、出力の psk=(ハッシュ値、
