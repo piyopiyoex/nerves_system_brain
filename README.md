@@ -24,6 +24,7 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `src/lns.c` | `symlink(2)` を呼ぶ静的ヘルパー（Nerves busybox に `ln` が無いため） |
 | `sd/imx28-pwsh6-peripheral.dtb` | **USB を device モード化した DTB**（後述）/ `pwsh6.dts` はその DTS |
 | `sd/*.sh` | SD の作成・配備スクリプト |
+| `docs/adr/` | 今後も参照する必要がある設計判断の記録 |
 
 ## ビルド
 
