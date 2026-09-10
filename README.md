@@ -46,10 +46,39 @@ arm-linux-gcc -Os -static -o rootfs_overlay/usr/bin/lns src/lns.c
 [buildbrain releases](https://github.com/brain-hackers/buildbrain/releases) から
 `sdimage-*.zip` を入手）。
 
+SD カード用スクリプトは Linux 上で実行し、対象となるディスク全体のデバイス名を
+必ず引数で指定する。パーティション（`/dev/sdX1` など）は指定できない。
+`populate_sd.sh` は対象の第2パーティションを再初期化し、既存内容をすべて消去する。
+
 ```sh
-# 1) ベースイメージを dd で書き込み
-# 2) sd/populate_sd.sh で p2 を Nerves rootfs + OTP に差し替え
-# 3) sd/deploy_release.sh で hello_kiosk_brain リリースを配置
+# 接続した記憶装置を確認する
+lsblk -o NAME,PATH,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINTS,MODEL
+
+# 1) buildbrain のベースイメージを SD カードへ書き込む
+# 2) p2 を Nerves rootfs + OTP に差し替える
+sudo bash sd/populate_sd.sh /dev/sdX
+
+# 既定の o/ 以外を使用する場合はビルド出力ディレクトリも指定する
+sudo bash sd/populate_sd.sh /dev/sdX /path/to/build-output
+
+# 3) hello_kiosk_brain の初回リリースを配置する
+sudo bash sd/deploy_release.sh /dev/sdX \
+  /path/to/hello_kiosk_brain/_build/prod/rel/hello_kiosk_brain
+```
+
+各スクリプトはパーティションとラベルを検査し、実行前に対象デバイスの情報を表示する。
+続行には表示されたデバイス名の再入力が必要。自動マウント済みの対象パーティションは
+処理前にアンマウントし、異常終了時にもスクリプトが作成したマウントを解除する。
+
+`/dev/mmcblk0` など末尾が数字のデバイスでは、パーティション名の `p1`、`p2` を
+自動的に補う。
+
+USB NCM 関連のファイルだけを既存の SD カードへ反映する補助スクリプトも、同様に
+対象デバイスを指定して実行する。
+
+```sh
+sudo bash sd/update_erlinit.sh /dev/sdX
+sudo bash sd/update_gadget_v2.sh /dev/sdX
 ```
 
 ### 重要: USB デバイスモード化 DTB（`imx28-pwsh6-peripheral.dtb`）
