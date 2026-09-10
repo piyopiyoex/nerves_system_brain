@@ -1,0 +1,5 @@
+config BR2_PACKAGE_LNS
+	bool "lns"
+	help
+	  configfs にシンボリックリンクを作成するための小さな補助プログラムです。
+	  BusyBox の ln を含まない現在の rootfs で使用します。
