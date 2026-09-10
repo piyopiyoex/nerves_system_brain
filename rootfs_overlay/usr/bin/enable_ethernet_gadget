@@ -5,6 +5,7 @@ set -eu
 CONFIGFS_ROOT=${USB_NCM_CONFIGFS_ROOT:-/sys/kernel/config}
 SYS_CLASS_ROOT=${USB_NCM_SYS_CLASS_ROOT:-/sys/class}
 DIAGNOSTIC_LOG=${USB_NCM_DIAGNOSTIC_LOG:-/root/gadget_diag.log}
+SETTINGS_FILE=${USB_NCM_SETTINGS_FILE:-/etc/usb-ncm.conf}
 
 GADGET="$CONFIGFS_ROOT/usb_gadget/eth"
 FUNCTION="$GADGET/functions/ncm.usb0"
@@ -21,6 +22,37 @@ log()
 	printf 'enable_ethernet_gadget: %s\n' "$*" >&2
 }
 
+require_setting()
+{
+	if [ -z "$2" ]; then
+		log "設定値が空です: $1"
+		return 1
+	fi
+}
+
+load_settings()
+{
+	if [ ! -r "$SETTINGS_FILE" ]; then
+		log "設定ファイルを読み込めません: $SETTINGS_FILE"
+		return 1
+	fi
+
+	# このファイルは rootfs に含める管理対象のシェル設定として読み込む。
+	unset USB_NCM_SERIAL_NUMBER USB_NCM_DEVICE_MAC USB_NCM_HOST_MAC USB_NCM_IP_ADDRESS
+	# shellcheck disable=SC1090
+	. "$SETTINGS_FILE"
+
+	require_setting USB_NCM_SERIAL_NUMBER "${USB_NCM_SERIAL_NUMBER:-}" || return 1
+	require_setting USB_NCM_DEVICE_MAC "${USB_NCM_DEVICE_MAC:-}" || return 1
+	require_setting USB_NCM_HOST_MAC "${USB_NCM_HOST_MAC:-}" || return 1
+	require_setting USB_NCM_IP_ADDRESS "${USB_NCM_IP_ADDRESS:-}" || return 1
+
+	if [ "$USB_NCM_DEVICE_MAC" = "$USB_NCM_HOST_MAC" ]; then
+		log 'USB_NCM_DEVICE_MAC と USB_NCM_HOST_MAC には異なる値が必要です'
+		return 1
+	fi
+}
+
 value_is()
 {
 	[ -e "$1" ] && [ "$(cat "$1" 2>/dev/null)" = "$2" ]
@@ -30,13 +62,13 @@ gadget_is_ready()
 {
 	[ -d "$FUNCTION" ] &&
 		[ -e "$FUNCTION_LINK" ] &&
-		value_is "$GADGET/strings/0x409/serialnumber" 0123456789 &&
+		value_is "$GADGET/strings/0x409/serialnumber" "$USB_NCM_SERIAL_NUMBER" &&
 		value_is "$GADGET/strings/0x409/manufacturer" SHARP &&
 		value_is "$GADGET/strings/0x409/product" 'Brain (Nerves)' &&
 		value_is "$CONFIG/strings/0x409/configuration" 'NCM Config' &&
 		value_is "$CONFIG/MaxPower" 250 &&
-		value_is "$FUNCTION/dev_addr" '8a:15:8b:44:3a:02' &&
-		value_is "$FUNCTION/host_addr" '8a:15:8b:44:3a:01' &&
+		value_is "$FUNCTION/dev_addr" "$USB_NCM_DEVICE_MAC" &&
+		value_is "$FUNCTION/host_addr" "$USB_NCM_HOST_MAC" &&
 		[ -n "$(cat "$GADGET/UDC" 2>/dev/null)" ] &&
 		[ -e "$SYS_CLASS_ROOT/udc/$(cat "$GADGET/UDC" 2>/dev/null)" ]
 }
@@ -136,7 +168,7 @@ configure_gadget()
 	printf '0x0200\n' >"$GADGET/bcdUSB"
 	printf '0x0200\n' >"$GADGET/bcdDevice"
 	mkdir -p "$GADGET/strings/0x409"
-	printf '0123456789\n' >"$GADGET/strings/0x409/serialnumber"
+	printf '%s\n' "$USB_NCM_SERIAL_NUMBER" >"$GADGET/strings/0x409/serialnumber"
 	printf 'SHARP\n' >"$GADGET/strings/0x409/manufacturer"
 	printf 'Brain (Nerves)\n' >"$GADGET/strings/0x409/product"
 
@@ -147,8 +179,8 @@ configure_gadget()
 
 	current_step='NCM function の作成'
 	mkdir "$FUNCTION"
-	printf '8a:15:8b:44:3a:02\n' >"$FUNCTION/dev_addr"
-	printf '8a:15:8b:44:3a:01\n' >"$FUNCTION/host_addr"
+	printf '%s\n' "$USB_NCM_DEVICE_MAC" >"$FUNCTION/dev_addr"
+	printf '%s\n' "$USB_NCM_HOST_MAC" >"$FUNCTION/host_addr"
 	# 現在の BusyBox 構成には ln がないため、静的 helper を使用する。
 	lns "$FUNCTION" "$FUNCTION_LINK"
 
@@ -171,8 +203,8 @@ configure_network()
 	ip link set "$INTERFACE" up || return 1
 
 	current_step='usb0 の IP アドレス設定'
-	if ! ip addr show dev "$INTERFACE" | grep -q 'inet 10\.42\.0\.2/24'; then
-		ip addr add 10.42.0.2/24 dev "$INTERFACE" || return 1
+	if ! ip addr show dev "$INTERFACE" | grep -Fq "inet $USB_NCM_IP_ADDRESS "; then
+		ip addr add "$USB_NCM_IP_ADDRESS" dev "$INTERFACE" || return 1
 	fi
 }
 
@@ -180,6 +212,9 @@ trap 'on_exit $?' 0
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+current_step='USB NCM 設定の読み込み'
+load_settings || exit 1
 
 if gadget_is_ready; then
 	log '既存の gadget 構成を再利用します'
