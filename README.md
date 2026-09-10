@@ -20,10 +20,12 @@ LCD 854×480）向けのカスタム Nerves システム。
 |---|---|
 | `nerves_defconfig` | Buildroot 設定（arm926t / Bootlin armv5 / ext4 / カーネル非ビルド） |
 | `rootfs_overlay/etc/erlinit.config` | コンソール(tty1) + USB-NCM ガジェット自動起動 |
+| `rootfs_overlay/etc/hostname` | 対象機のホスト名 `brain` |
 | `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植） |
 | `src/lns.c` | `symlink(2)` を呼ぶ静的ヘルパー（Nerves busybox に `ln` が無いため） |
 | `sd/imx28-pwsh6-peripheral.dtb` | **USB を device モード化した DTB**（後述）/ `pwsh6.dts` はその DTS |
-| `sd/*.sh` | SD の作成・配備スクリプト |
+| `sd/populate_sd.sh` | ベースイメージへ rootfs、OTP、USB peripheral 用 DTB を配置するスクリプト |
+| `sd/deploy_release.sh` | アプリケーションの初回リリースを配置するスクリプト |
 
 ## ビルド
 
@@ -55,7 +57,7 @@ SD カード用スクリプトは Linux 上で実行し、対象となるディ�
 lsblk -o NAME,PATH,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINTS,MODEL
 
 # 1) buildbrain のベースイメージを SD カードへ書き込む
-# 2) p2 を Nerves rootfs + OTP に差し替える
+# 2) p1 の起動用ファイルと DTB、p2 の Nerves rootfs と OTP を配置する
 sudo bash sd/populate_sd.sh /dev/sdX
 
 # 既定の o/ 以外を使用する場合はビルド出力ディレクトリも指定する
@@ -66,6 +68,9 @@ sudo bash sd/deploy_release.sh /dev/sdX \
   /path/to/hello_kiosk_brain/_build/prod/rel/hello_kiosk_brain
 ```
 
+`populate_sd.sh` の完了時点で SHARP Brain 固有のシステム組み立ては完了する。
+`deploy_release.sh` はアプリケーション固有の初回配置だけを担当する。
+
 各スクリプトはパーティションとラベルを検査し、実行前に対象デバイスの情報を表示する。
 続行には表示されたデバイス名の再入力が必要。自動マウント済みの対象パーティションは
 処理前にアンマウントし、異常終了時にもスクリプトが作成したマウントを解除する。
@@ -73,23 +78,24 @@ sudo bash sd/deploy_release.sh /dev/sdX \
 `/dev/mmcblk0` など末尾が数字のデバイスでは、パーティション名の `p1`、`p2` を
 自動的に補う。
 
-USB NCM 関連のファイルだけを既存の SD カードへ反映する補助スクリプトも、同様に
-対象デバイスを指定して実行する。
+`rootfs.tar` には `rootfs_overlay/` の `erlinit.config`、`enable_ethernet_gadget`、
+ホスト名 `brain` が含まれるため、これらを SD カードへ個別に反映する必要はない。
 
-```sh
-sudo bash sd/update_erlinit.sh /dev/sdX
-sudo bash sd/update_gadget_v2.sh /dev/sdX
-```
+一方、`nerves_system_br` の Erlang package は OTP を `target` へ配置せず、クロスビルド用の
+`staging` にのみ配置する。このため `rootfs.tar` には `/usr/lib/erlang` が含まれない。
+現在の bring-up 環境を維持するため、`populate_sd.sh` が
+`staging/usr/lib/erlang` を p2 へ追加でコピーする。
 
 ### 重要: USB デバイスモード化 DTB（`imx28-pwsh6-peripheral.dtb`）
 
 配布イメージの `imx28-pwsh6.dtb` は `usb@80080000` の `dr_mode` が **`host`** で、
 USB ガジェット（NCM）が動かない。**brain-config の「ガジェット有効化」の実体は、
 この dr_mode を `peripheral` に書き換えること**。本リポジトリの
-`sd/imx28-pwsh6-peripheral.dtb` はそのパッチ済み版。ブートパーティション(p1)の
-`imx28-pwsh6.dtb` をこれに置き換える。
+`sd/imx28-pwsh6-peripheral.dtb` はそのパッチ済み版。`populate_sd.sh` が
+ブートパーティション（p1）の `imx28-pwsh6.dtb` として自動的に配置するため、
+標準の組み立て手順では手動の差し替えは不要。
 
-配布イメージのオリジナル DTB からパッチを当てる手順:
+参考として、配布イメージのオリジナル DTB から再生成する手順を示す。
 
 ```sh
 dtc -I dtb -O dts imx28-pwsh6.dtb -o pwsh6.dts
