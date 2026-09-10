@@ -1,4 +1,2 @@
-# Add project-specific packages for Buildroot here
-#
-# If these are non-proprietary, please consider contributing them back to
-# Nerves or Buildroot.
+# プロジェクト固有の Buildroot package
+source "$NERVES_DEFCONFIG_DIR/package/lns/Config.in"

@@ -21,24 +21,24 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `nerves_defconfig` | Buildroot 設定（arm926t / Bootlin armv5 / ext4 / カーネル非ビルド） |
 | `rootfs_overlay/etc/erlinit.config` | コンソール(tty1) + USB-NCM ガジェット自動起動 |
 | `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植） |
-| `src/lns.c` | `symlink(2)` を呼ぶ静的ヘルパー（Nerves busybox に `ln` が無いため） |
+| `package/lns/` | `symlink(2)` を呼ぶ静的ヘルパーの Buildroot package（BusyBox に `ln` が無いため） |
 | `sd/imx28-pwsh6-peripheral.dtb` | **USB を device モード化した DTB**（後述）/ `pwsh6.dts` はその DTS |
 | `sd/*.sh` | SD の作成・配備スクリプト |
 
 ## ビルド
 
 ```sh
-# nerves_system_br を取得し create-build.sh で初期化
-git clone --depth 1 https://github.com/nerves-project/nerves_system_br.git
-./nerves_system_br/create-build.sh nerves_defconfig o
-cd o && make        # OTP 29 の armv5 クロスビルド含む（時間がかかる）
+# リポジトリの親ディレクトリに nerves_system_br v1.34.3 を取得
+git clone --branch v1.34.3 --depth 1 \
+  https://github.com/nerves-project/nerves_system_br.git ../nerves_system_br
+
+# Buildroot を初期化してビルド
+../nerves_system_br/create-build.sh nerves_defconfig o
+make -C o           # OTP 29 の armv5 クロスビルドを含むため時間がかかる
 ```
 
-`src/lns.c` は Bootlin ツールチェーンで別途ビルドして `rootfs_overlay/usr/bin/lns` に置く:
-
-```sh
-arm-linux-gcc -Os -static -o rootfs_overlay/usr/bin/lns src/lns.c
-```
+USB NCM の構成に必要な `lns` は、`package/lns/` から対象用ツールチェーンで自動的に
+ビルドされ、rootfs の `/usr/bin/lns` へ配置される。事前の手動ビルドは不要。
 
 ## SD カードの作成
 
