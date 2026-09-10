@@ -1,61 +1,201 @@
 #!/bin/sh
-# USB NCM gadget for SHARP Brain (Nerves port, v2).
-# - Nerves busybox has no `ln`: use the static /usr/bin/lns helper instead.
-# - Runs early from erlinit --pre-run-exec, so wait for the UDC to finish
-#   probing (it is still deferred at ~3s after boot) and take its real name
-#   from /sys/class/udc instead of hardcoding it.
+# SHARP Brain 用 USB NCM gadget を構成する。
+set -eu
 
-g=/sys/kernel/config/usb_gadget/eth
-[ -d "$g" ] && exit 0
+CONFIGFS_ROOT=${USB_NCM_CONFIGFS_ROOT:-/sys/kernel/config}
+SYS_CLASS_ROOT=${USB_NCM_SYS_CLASS_ROOT:-/sys/class}
+DIAGNOSTIC_LOG=${USB_NCM_DIAGNOSTIC_LOG:-/root/gadget_diag.log}
 
-mkdir "$g" || exit 1
+GADGET="$CONFIGFS_ROOT/usb_gadget/eth"
+FUNCTION="$GADGET/functions/ncm.usb0"
+CONFIG="$GADGET/configs/c.1"
+FUNCTION_LINK="$CONFIG/ncm.usb0"
+INTERFACE=usb0
 
-echo "0x0200" > "$g"/bcdUSB
-echo "0x0200" > "$g"/bcdDevice
-
-mkdir -p "$g"/strings/0x409
-echo "0123456789" > "$g"/strings/0x409/serialnumber
-echo "SHARP" > "$g"/strings/0x409/manufacturer
-echo "Brain (Nerves)" > "$g"/strings/0x409/product
-
-mkdir -p "$g"/configs/c.1/strings/0x409
-echo "NCM Config" > "$g"/configs/c.1/strings/0x409/configuration
-echo 250 > "$g"/configs/c.1/MaxPower
-
-mkdir "$g"/functions/ncm.usb0
-echo "8a:15:8b:44:3a:02" > "$g"/functions/ncm.usb0/dev_addr
-echo "8a:15:8b:44:3a:01" > "$g"/functions/ncm.usb0/host_addr
-
-lns "$g"/functions/ncm.usb0 "$g"/configs/c.1/ncm.usb0
-
-# Wait for a UDC to appear (up to 30s), then bind to it by its real name
-n=0
+cleanup_required=0
+current_step=起動
 udc=
-while [ -z "$udc" ] && [ "$n" -lt 30 ]; do
-    for u in /sys/class/udc/*; do
-        [ -e "$u" ] && udc=${u##*/} && break
-    done
-    if [ -z "$udc" ]; then
-        sleep 1
-        n=$((n + 1))
-    fi
-done
-if [ -z "$udc" ]; then
-    echo "enable_ethernet_gadget: no UDC appeared - diag follows"
-    dmesg | grep -iE 'ci_hdrc|chipidea|udc|otg|usbphy|mxs.phy|deferred'
-    {
-        echo "=== ls /sys/class/udc ==="
-        ls /sys/class/udc
-        echo "=== dmesg (usb/phy) ==="
-        dmesg | grep -iE 'ci_hdrc|chipidea|udc|otg|usb|phy'
-        echo "=== full dmesg ==="
-        dmesg
-    } > /root/gadget_diag.log 2>&1
-    exit 1
+
+log()
+{
+	printf 'enable_ethernet_gadget: %s\n' "$*" >&2
+}
+
+value_is()
+{
+	[ -e "$1" ] && [ "$(cat "$1" 2>/dev/null)" = "$2" ]
+}
+
+gadget_is_ready()
+{
+	[ -d "$FUNCTION" ] &&
+		[ -e "$FUNCTION_LINK" ] &&
+		value_is "$GADGET/strings/0x409/serialnumber" 0123456789 &&
+		value_is "$GADGET/strings/0x409/manufacturer" SHARP &&
+		value_is "$GADGET/strings/0x409/product" 'Brain (Nerves)' &&
+		value_is "$CONFIG/strings/0x409/configuration" 'NCM Config' &&
+		value_is "$CONFIG/MaxPower" 250 &&
+		value_is "$FUNCTION/dev_addr" '8a:15:8b:44:3a:02' &&
+		value_is "$FUNCTION/host_addr" '8a:15:8b:44:3a:01' &&
+		[ -n "$(cat "$GADGET/UDC" 2>/dev/null)" ] &&
+		[ -e "$SYS_CLASS_ROOT/udc/$(cat "$GADGET/UDC" 2>/dev/null)" ]
+}
+
+cleanup_gadget()
+{
+	[ -d "$GADGET" ] || return 0
+
+	log '既存の gadget 構成を解除します'
+	if [ -e "$GADGET/UDC" ]; then
+		printf '\n' >"$GADGET/UDC"
+	fi
+
+	# configfs の依存関係に従い、接続とは逆の順序で削除する。
+	rm -f "$FUNCTION_LINK"
+	[ ! -d "$CONFIG/strings/0x409" ] || rmdir "$CONFIG/strings/0x409"
+	[ ! -d "$CONFIG" ] || rmdir "$CONFIG"
+	[ ! -d "$FUNCTION" ] || rmdir "$FUNCTION"
+	[ ! -d "$GADGET/strings/0x409" ] || rmdir "$GADGET/strings/0x409"
+	rmdir "$GADGET"
+}
+
+write_diagnostics()
+{
+	{
+		printf '失敗した処理: %s\n' "$current_step"
+		printf '\n=== gadget ===\n'
+		if [ -d "$GADGET" ]; then
+			printf 'UDC: '
+			cat "$GADGET/UDC"
+			ls -la "$GADGET" "$GADGET/configs" "$GADGET/functions"
+		else
+			printf '未作成\n'
+		fi
+
+		printf '\n=== UDC ===\n'
+		ls -la "$SYS_CLASS_ROOT/udc"
+
+		printf '\n=== network interface ===\n'
+		ip addr show dev "$INTERFACE"
+
+		printf '\n=== kernel log (USB/UDC/PHY) ===\n'
+		dmesg | grep -iE 'ci_hdrc|chipidea|udc|otg|usb|phy|deferred'
+	} >"$DIAGNOSTIC_LOG" 2>&1
+}
+
+on_exit()
+{
+	exit_status=$1
+	trap - 0 HUP INT TERM
+	[ "$exit_status" -ne 0 ] || exit 0
+
+	set +e
+	log "失敗しました（処理: $current_step、終了状態: $exit_status）"
+	write_diagnostics
+	log "診断情報: $DIAGNOSTIC_LOG"
+	if [ "$cleanup_required" -eq 1 ]; then
+		cleanup_gadget || log '途中状態を完全には解除できませんでした'
+	fi
+	exit "$exit_status"
+}
+
+wait_for_udc()
+{
+	# erlinit の実行時点では UDC の probe が完了していない場合がある。
+	wait_count=0
+	while [ "$wait_count" -lt 30 ]; do
+		for candidate in "$SYS_CLASS_ROOT"/udc/*; do
+			if [ -e "$candidate" ]; then
+				udc=${candidate##*/}
+				return 0
+			fi
+		done
+		sleep 1
+		wait_count=$((wait_count + 1))
+	done
+	return 1
+}
+
+wait_for_interface()
+{
+	wait_count=0
+	while [ "$wait_count" -lt 10 ]; do
+		[ ! -d "$SYS_CLASS_ROOT/net/$INTERFACE" ] || return 0
+		sleep 1
+		wait_count=$((wait_count + 1))
+	done
+	return 1
+}
+
+configure_gadget()
+{
+	current_step='gadget ディレクトリの作成'
+	mkdir "$GADGET"
+
+	current_step='USB 識別情報の設定'
+	printf '0x0200\n' >"$GADGET/bcdUSB"
+	printf '0x0200\n' >"$GADGET/bcdDevice"
+	mkdir -p "$GADGET/strings/0x409"
+	printf '0123456789\n' >"$GADGET/strings/0x409/serialnumber"
+	printf 'SHARP\n' >"$GADGET/strings/0x409/manufacturer"
+	printf 'Brain (Nerves)\n' >"$GADGET/strings/0x409/product"
+
+	current_step='USB configuration の作成'
+	mkdir -p "$CONFIG/strings/0x409"
+	printf 'NCM Config\n' >"$CONFIG/strings/0x409/configuration"
+	printf '250\n' >"$CONFIG/MaxPower"
+
+	current_step='NCM function の作成'
+	mkdir "$FUNCTION"
+	printf '8a:15:8b:44:3a:02\n' >"$FUNCTION/dev_addr"
+	printf '8a:15:8b:44:3a:01\n' >"$FUNCTION/host_addr"
+	# 現在の BusyBox 構成には ln がないため、静的 helper を使用する。
+	lns "$FUNCTION" "$FUNCTION_LINK"
+
+	current_step='UDC の待機'
+	if ! wait_for_udc; then
+		log '30 秒以内に UDC が見つかりませんでした'
+		return 1
+	fi
+
+	current_step='gadget と UDC の接続'
+	printf '%s\n' "$udc" >"$GADGET/UDC"
+}
+
+configure_network()
+{
+	current_step='usb0 の待機'
+	wait_for_interface || return 1
+
+	current_step='usb0 の有効化'
+	ip link set "$INTERFACE" up || return 1
+
+	current_step='usb0 の IP アドレス設定'
+	if ! ip addr show dev "$INTERFACE" | grep -q 'inet 10\.42\.0\.2/24'; then
+		ip addr add 10.42.0.2/24 dev "$INTERFACE" || return 1
+	fi
+}
+
+trap 'on_exit $?' 0
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+if gadget_is_ready; then
+	log '既存の gadget 構成を再利用します'
+else
+	cleanup_required=1
+	current_step='既存の gadget 構成の解除'
+	cleanup_gadget
+	configure_gadget
 fi
 
-echo "$udc" > "$g"/UDC
+if ! configure_network; then
+	cleanup_required=1
+	exit 1
+fi
 
-sleep 1
-ip link set usb0 up
-ip addr add 10.42.0.2/24 dev usb0
+cleanup_required=0
+rm -f "$DIAGNOSTIC_LOG" || log "古い診断情報を削除できません: $DIAGNOSTIC_LOG"
+trap - 0 HUP INT TERM
+log 'USB NCM を利用できます'

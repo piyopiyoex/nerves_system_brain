@@ -25,6 +25,12 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `sd/imx28-pwsh6-peripheral.dtb` | **USB を device モード化した DTB**（後述）/ `pwsh6.dts` はその DTS |
 | `sd/*.sh` | SD の作成・配備スクリプト |
 
+### USB NCM の初期化
+
+`enable_ethernet_gadget` は `erlinit` から起動される。設定済みの gadget は再利用し、
+不完全または設定が異なる場合は一度解除して再構成する。途中で失敗した場合は可能な範囲で
+構成を解除し、失敗した処理と関連する状態を `/root/gadget_diag.log` に保存する。
+
 ## ビルド
 
 ```sh
