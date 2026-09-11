@@ -74,9 +74,14 @@ dtc -I dts -O dtb pwsh6.dts -o imx28-pwsh6-peripheral.dtb
 `:crypto.strong_rand_bytes` がブロックするため起動が不安定。詳細は
 hello_kiosk_brain 側の `docs/20260903_SSH起動不能_セカンドオピニオン質問書.md` 参照。
 
-## クレジット / ライセンス
+## ライセンス / クレジット
 
-カーネル・U-Boot・DTB・配布イメージは
-[brain-hackers](https://github.com/brain-hackers) プロジェクトの成果物（本リポジトリには
-再配布用バイナリを含めない）。Nerves システムのビルド基盤は
-[nerves-project](https://github.com/nerves-project)。
+本リポジトリで作成したプログラムは、原則として Apache License 2.0 の下で
+公開する。文書、設定ファイル、上流由来のファイルには個別のライセンスが
+適用される。ファイル単位の著作権とライセンス情報は `REUSE.toml` と
+`LICENSES/` を参照。
+
+Device Tree のソースと生成済み DTB は
+[brain-hackers/linux-brain](https://github.com/brain-hackers/linux-brain) に由来する。
+カーネル、U-Boot、buildbrain の配布イメージは本リポジトリに含めない。
+Nerves システムのビルド基盤は [nerves-project](https://github.com/nerves-project)。

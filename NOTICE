@@ -1,0 +1,14 @@
+nerves_system_brain は、主として Apache License, Version 2.0 の下で公開する
+オープンソースソフトウェアです。
+
+著作権者には、kurokouji、Masatoshi Nishiguchi、および
+nerves_system_brain contributors が含まれます。
+
+Device Tree のソースと生成物は brain-hackers/linux-brain に由来し、
+GNU General Public License version 2 or later の下で公開されています。
+元の著作権表示には Freescale Semiconductor, Inc. が含まれます。
+
+Buildroot に関連するファイルには、Buildroot のライセンスと著作権表示が
+適用されます。
+
+ファイル単位の著作権とライセンス情報は REUSE.toml と LICENSES/ を参照してください。

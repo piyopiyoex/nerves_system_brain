@@ -1,0 +1,66 @@
+version = 1
+
+# リポジトリ管理用ファイル
+[[annotations]]
+path = [
+  ".gitignore",
+  "NOTICE",
+  "REUSE.toml",
+  "VERSION"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "None"
+SPDX-License-Identifier = "CC0-1.0"
+
+# 説明文書
+[[annotations]]
+path = [
+  "README.md"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 nerves_system_brain contributors"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# Buildroot に関連するファイル
+[[annotations]]
+path = [
+  "Config.in",
+  "post-build.sh"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "The Buildroot developers <buildroot@buildroot.org>"
+SPDX-License-Identifier = "GPL-2.0-or-later"
+
+# 著作物性の低い設定ファイル
+[[annotations]]
+path = [
+  "nerves_defconfig",
+  "rootfs_overlay/etc/erlinit.config"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "None"
+SPDX-License-Identifier = "CC0-1.0"
+
+# 本リポジトリで作成したプログラム
+[[annotations]]
+path = [
+  "rootfs_overlay/usr/bin/enable_ethernet_gadget",
+  "sd/*.sh",
+  "src/lns.c"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 nerves_system_brain contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
+# brain-hackers/linux-brain の Device Tree から生成したファイル
+[[annotations]]
+path = [
+  "sd/*.dts",
+  "sd/*.dtb"
+]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "2012 Freescale Semiconductor, Inc.",
+  "2026 nerves_system_brain contributors"
+]
+SPDX-License-Identifier = "GPL-2.0-or-later"
