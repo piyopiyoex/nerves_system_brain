@@ -34,6 +34,7 @@ SPDX-License-Identifier = "GPL-2.0-or-later"
 # 著作物性の低い設定ファイル
 [[annotations]]
 path = [
+  ".github/workflows/*.yml",
   "nerves_defconfig",
   "rootfs_overlay/etc/erlinit.config"
 ]
@@ -44,7 +45,9 @@ SPDX-License-Identifier = "CC0-1.0"
 # 本リポジトリで作成したプログラム
 [[annotations]]
 path = [
+  "Makefile",
   "rootfs_overlay/usr/bin/enable_ethernet_gadget",
+  "scripts/*.sh",
   "sd/*.sh",
   "src/lns.c"
 ]

@@ -1,0 +1,29 @@
+name: 基本検証
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: ソースコードを取得
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 検証ツールを導入
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes device-tree-compiler
+          pipx install reuse==6.2.0
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: 基本検証を実行
+        run: make check

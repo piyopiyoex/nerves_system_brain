@@ -68,6 +68,29 @@ dtc -I dtb -O dts imx28-pwsh6.dtb -o pwsh6.dts
 dtc -I dts -O dtb pwsh6.dts -o imx28-pwsh6-peripheral.dtb
 ```
 
+## 検証
+
+CI は Pull Request と `main` への push ごとに、実機を使用しない軽量な検証を行う。
+ローカルでも同じ検証を `make check` で実行できる。
+
+Ubuntu では C コンパイラと Device Tree Compiler を事前に導入する。
+
+```sh
+sudo apt-get install build-essential device-tree-compiler
+mise x pipx:reuse@6.2.0 -- make check
+```
+
+検証内容は次のとおり。
+
+- シェルスクリプトの構文確認
+- `lns` の静的ビルドと基本動作の確認
+- DTS のコンパイルと、収録している DTB との一致確認
+- `VERSION`、`nerves_defconfig`、`erlinit.config` の基本設定確認
+- `reuse lint` によるライセンス情報の確認
+
+Buildroot 全体のビルド、SD カードイメージの生成、PW-SH6 実機での動作確認は
+この検証には含めない。
+
 ## 既知の未解決課題
 
 実機の `:ssh` デーモンは、ARMv5 の crng 初期化がエントロピー枯渇で完了せず
