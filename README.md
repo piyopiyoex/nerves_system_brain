@@ -22,7 +22,8 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `rootfs_overlay/etc/erlinit.config` | コンソール(tty1) + USB-NCM ガジェット自動起動 |
 | `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植） |
 | `src/lns.c` | `symlink(2)` を呼ぶ静的ヘルパー（Nerves busybox に `ln` が無いため） |
-| `sd/imx28-pwsh6-peripheral.dtb` | **USB を device モード化した DTB**（後述）/ `pwsh6.dts` はその DTS |
+| `sd/*.dts`, `sd/*.dtb` | PW-SH6 用 device tree のソースと生成済み DTB（[詳細](sd/README.md)） |
+| `sd/Makefile` | DTS から DTB を生成する Makefile |
 | `sd/*.sh` | SD の作成・配備スクリプト |
 
 ## ビルド
@@ -56,16 +57,15 @@ arm-linux-gcc -Os -static -o rootfs_overlay/usr/bin/lns src/lns.c
 
 配布イメージの `imx28-pwsh6.dtb` は `usb@80080000` の `dr_mode` が **`host`** で、
 USB ガジェット（NCM）が動かない。**brain-config の「ガジェット有効化」の実体は、
-この dr_mode を `peripheral` に書き換えること**。本リポジトリの
+この `dr_mode` を `peripheral` に書き換えること**。本リポジトリの
 `sd/imx28-pwsh6-peripheral.dtb` はそのパッチ済み版。ブートパーティション(p1)の
 `imx28-pwsh6.dtb` をこれに置き換える。
 
-配布イメージのオリジナル DTB からパッチを当てる手順:
+通常使用するのは peripheral 版である。buzzer 版は実験用であり、発音は未確認である。
+DTS と DTB の対応、出典、生成方法は [sd/README.md](sd/README.md) を参照する。
 
 ```sh
-dtc -I dtb -O dts imx28-pwsh6.dtb -o pwsh6.dts
-# pwsh6.dts の usb@80080000 内 dr_mode = "host" を "peripheral" に
-dtc -I dts -O dtb pwsh6.dts -o imx28-pwsh6-peripheral.dtb
+make -B -C sd
 ```
 
 ## 既知の未解決課題
