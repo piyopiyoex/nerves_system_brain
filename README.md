@@ -19,11 +19,19 @@ LCD 854×480）向けのカスタム Nerves システム。
 | パス | 内容 |
 |---|---|
 | `nerves_defconfig` | Buildroot 設定（arm926t / Bootlin armv5 / ext4 / カーネル非ビルド） |
-| `rootfs_overlay/etc/erlinit.config` | コンソール(tty1) + USB-NCM ガジェット自動起動 |
+| `rootfs_overlay/etc/erlinit.config` | LCD コンソールと USB NCM を準備する bring-up 用設定（[詳細](docs/erlinit.md)） |
 | `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植） |
 | `src/lns.c` | `symlink(2)` を呼ぶ静的ヘルパー（Nerves busybox に `ln` が無いため） |
 | `sd/imx28-pwsh6-peripheral.dtb` | **USB を device モード化した DTB**（後述）/ `pwsh6.dts` はその DTS |
 | `sd/*.sh` | SD の作成・配備スクリプト |
+
+### 起動処理
+
+Linux kernel は `/sbin/init` として `erlinit` を起動する。`erlinit` は configfs をマウントし、
+USB NCM 初期化スクリプトの終了を待ってから `/srv/erlang` の application release を起動する。
+現在は hardware bring-up のため、詳細な起動ログ、LCD コンソール、Erlang 異常終了時の
+調査用シェルも有効にしている。各設定の目的と通常運用へ移行するときの候補は
+[docs/erlinit.md](docs/erlinit.md) を参照する。
 
 ## ビルド
 
