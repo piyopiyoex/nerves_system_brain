@@ -20,8 +20,7 @@ jobs:
 
       - name: 検証ツールを導入
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes device-tree-compiler
+          sudo apt-get install --yes --no-install-recommends device-tree-compiler
           pipx install reuse==6.2.0
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
