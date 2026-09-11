@@ -3,7 +3,8 @@
 SHARP Brain 電子辞書 **PW-SH6**（NXP i.MX283 / ARMv5TEJ soft-float / 128MiB /
 LCD 854×480）向けのカスタム Nerves システム。
 
-アプリ側は [hello_kiosk_brain](https://github.com/kurokouji/hello_kiosk_brain)。
+本リポジトリはシステムを提供し、アプリケーションは ERTS を含めない
+Elixir release として別途用意する。
 
 ## 方針
 
@@ -26,6 +27,7 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `sd/imx28-pwsh6-peripheral.dtb` | **USB を device モード化した DTB**（後述）/ `pwsh6.dts` はその DTS |
 | `sd/populate_sd.sh` | ベースイメージへ rootfs、OTP、USB peripheral 用 DTB を配置するスクリプト |
 | `sd/deploy_release.sh` | アプリケーションの初回リリースを配置するスクリプト |
+| `docs/release-deployment.md` | アプリケーション release の要件と配置手順 |
 
 ## ビルド
 
@@ -63,13 +65,15 @@ sudo bash sd/populate_sd.sh /dev/sdX
 # 既定の o/ 以外を使用する場合はビルド出力ディレクトリも指定する
 sudo bash sd/populate_sd.sh /dev/sdX /path/to/build-output
 
-# 3) hello_kiosk_brain の初回リリースを配置する
+# 3) アプリケーションの初回リリースを配置する
 sudo bash sd/deploy_release.sh /dev/sdX \
-  /path/to/hello_kiosk_brain/_build/prod/rel/hello_kiosk_brain
+  /path/to/application/_build/prod/rel/application
 ```
 
 `populate_sd.sh` の完了時点で SHARP Brain 固有のシステム組み立ては完了する。
 `deploy_release.sh` はアプリケーション固有の初回配置だけを担当する。
+release の要件と責務の分担は
+[アプリケーション release の作成と配置](docs/release-deployment.md)を参照。
 
 各スクリプトはパーティションとラベルを検査し、実行前に対象デバイスの情報を表示する。
 続行には表示されたデバイス名の再入力が必要。自動マウント済みの対象パーティションは
@@ -106,8 +110,8 @@ dtc -I dts -O dtb pwsh6.dts -o imx28-pwsh6-peripheral.dtb
 ## 既知の未解決課題
 
 実機の `:ssh` デーモンは、ARMv5 の crng 初期化がエントロピー枯渇で完了せず
-`:crypto.strong_rand_bytes` がブロックするため起動が不安定。詳細は
-hello_kiosk_brain 側の `docs/20260903_SSH起動不能_セカンドオピニオン質問書.md` 参照。
+`:crypto.strong_rand_bytes` がブロックするため起動が不安定。
+原因と対策は未確定であり、引き続き実機での確認が必要。
 
 ## クレジット / ライセンス
 
