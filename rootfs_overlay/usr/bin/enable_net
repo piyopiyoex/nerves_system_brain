@@ -2,6 +2,23 @@
 # Combined network bring-up called from erlinit --pre-run-exec.
 # Both sub-scripts background their (slow) work and return immediately, so this
 # returns immediately too -> Erlang/KIOSK start right away, net comes up async.
+
+# Set the Linux clock from the Brain RTC first (i.MX28 HW_RTC_SECONDS @0x80056030; the Brain
+# firmware keeps it as seconds since 2000-01-01 in local JST). This makes the clock right
+# within seconds of boot, before NTP and before Erlang. HelloKioskBrain.BrainClock keeps the
+# two in sync afterwards (Linux -> RTC after NTP). Skipped if the RTC is unset (battery drained).
+if [ -x /root/devmem ]; then
+    raw=$(/root/devmem 0x80056030 2>/dev/null)
+    case "$raw" in
+        0x*|0X*) epoch=$(( $((raw)) - 32400 + 946684800 ))
+                 if [ "$epoch" -gt 1704067200 ] && [ "$epoch" -lt 2147483647 ]; then
+                     /bin/date -s "@$epoch" >/dev/null 2>&1 && echo "$(cat /proc/uptime) rtc->linux epoch=$epoch" >> /root/rtc_boot.log
+                 else
+                     echo "$(cat /proc/uptime) rtc unset/out of range raw=$raw" >> /root/rtc_boot.log
+                 fi ;;
+    esac
+fi
+
 /usr/bin/enable_wired_lan
 /usr/bin/enable_wifi
 exit 0
