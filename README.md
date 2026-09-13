@@ -3,7 +3,7 @@
 SHARP Brain 電子辞書 **PW-SH6**（NXP i.MX283 / ARMv5TEJ soft-float / 128MiB /
 LCD 854×480）向けのカスタム Nerves システム。
 
-アプリ側は [hello_kiosk_brain](https://github.com/kurokouji/hello_kiosk_brain)。
+動作例として `examples/hello_kiosk/` に `hello_kiosk_brain` を同梱する。
 
 ## 方針
 
@@ -24,6 +24,7 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `package/lns/` | `symlink(2)` を呼ぶ静的ヘルパーの Buildroot package（BusyBox に `ln` が無いため） |
 | `sd/imx28-pwsh6-peripheral.dtb` | **USB を device モード化した DTB**（後述）/ `pwsh6.dts` はその DTS |
 | `sd/*.sh` | SD の作成・配備スクリプト |
+| `examples/hello_kiosk/` | PW-SH6 で動作確認済みの Elixir KIOSK 動作例 |
 | `docs/adr/` | 今後も参照する必要がある設計判断の記録 |
 
 ## ビルド
@@ -40,6 +41,29 @@ make -C o           # OTP 29 の armv5 クロスビルドを含むため時間�
 
 USB NCM の構成に必要な `lns` は、`package/lns/` から対象用ツールチェーンで自動的に
 ビルドされ、rootfs の `/usr/bin/lns` へ配置される。事前の手動ビルドは不要。
+
+### 動作例（任意）
+
+Nerves システム自体のビルドは `examples/` に依存しない。実機で動作確認する場合だけ、
+`examples/hello_kiosk/` のリリースを構築する。`build_release.sh` は `o/staging` から
+ARMv5 用 OTP アプリを取り込み、同じツールチェーンで `priv/kiosk_nif.so` も
+クロスコンパイルする。
+
+```sh
+cd examples/hello_kiosk
+./scripts/setup_ssh.sh
+./scripts/build_release.sh
+```
+
+別の `nerves_system_brain` を参照する場合は `NERVES_SYSTEM_BRAIN_DIR`、同じリポジトリで
+別の Buildroot 出力を使う場合は `NERVES_BUILD_DIR` を指定できる。
+
+```sh
+NERVES_SYSTEM_BRAIN_DIR=/path/to/nerves_system_brain ./scripts/build_release.sh
+NERVES_BUILD_DIR=/path/to/build-output ./scripts/build_release.sh
+```
+
+詳細は [`examples/hello_kiosk/README.md`](examples/hello_kiosk/README.md) を参照。
 
 ## SD カードの作成
 
@@ -64,7 +88,7 @@ sudo bash sd/populate_sd.sh /dev/sdX /path/to/build-output
 
 # 3) hello_kiosk_brain の初回リリースを配置する
 sudo bash sd/deploy_release.sh /dev/sdX \
-  /path/to/hello_kiosk_brain/_build/prod/rel/hello_kiosk_brain
+  examples/hello_kiosk/_build/prod/rel/hello_kiosk_brain
 ```
 
 各スクリプトはパーティションとラベルを検査し、実行前に対象デバイスの情報を表示する。
@@ -98,11 +122,12 @@ dtc -I dtb -O dts imx28-pwsh6.dtb -o pwsh6.dts
 dtc -I dts -O dtb pwsh6.dts -o imx28-pwsh6-peripheral.dtb
 ```
 
-## 既知の未解決課題
+## SSH / crng メモ
 
-実機の `:ssh` デーモンは、ARMv5 の crng 初期化がエントロピー枯渇で完了せず
-`:crypto.strong_rand_bytes` がブロックするため起動が不安定。詳細は
-hello_kiosk_brain 側の `docs/20260903_SSH起動不能_セカンドオピニオン質問書.md` 参照。
+初期実装では、起動直後の乱数初期化と SSH の重い crypto 処理が UI を長時間ブロックする
+問題があった。現在の `hello_kiosk` では SSH の遅延起動・モジュール分散ロード・軽量な
+パスワード検証により回避している。調査経緯は
+`examples/hello_kiosk/docs/20260903_SSH起動不能_セカンドオピニオン質問書.md` を参照。
 
 ## クレジット / ライセンス
 
