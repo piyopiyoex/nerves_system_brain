@@ -127,7 +127,7 @@ dtc -I dts -O dtb pwsh6.dts -o imx28-pwsh6-peripheral.dtb
 初期実装では、起動直後の乱数初期化と SSH の重い crypto 処理が UI を長時間ブロックする
 問題があった。現在の `hello_kiosk` では SSH の遅延起動・モジュール分散ロード・軽量な
 パスワード検証により回避している。調査経緯は
-`examples/hello_kiosk/docs/20260903_SSH起動不能_セカンドオピニオン質問書.md` を参照。
+`examples/hello_kiosk/docs/worklog/20260903_SSH起動不能_セカンドオピニオン質問書.md` を参照。
 
 ## クレジット / ライセンス
 

@@ -2,7 +2,7 @@
 
 - 日付: 2026-09-04
 - プロジェクト: hello_kiosk_brain(SHARP Brain PW-SH6)
-- 前提: [20260904_LovyanGFX導入計画書.md](20260904_LovyanGFX導入計画書.md)
+- 前提: [20260904_LovyanGFX導入計画書.md](../worklog/20260904_LovyanGFX導入計画書.md)
 - 結論: **Phase 0(実機で LovyanGFX 描画・日本語・色順)通過**。統合方式は計画書の
   推奨 A(Port)ではなく **B(NIF)を採用** — hello_kiosk_papapa の実績構成を
   そのまま流用できたため。
@@ -49,7 +49,7 @@
 
 ## 3. Phase 0 実機検証(通過)
 
-- 証拠: [img/lovyangfx_ja_phase0.png](img/lovyangfx_ja_phase0.png)(実機 fb0 キャプチャ)
+- 証拠: [assets/lovyangfx_ja_phase0.png](../worklog/assets/lovyangfx_ja_phase0.png)(実機 fb0 キャプチャ)
 - 確認内容:
   - **日本語描画 OK**(「日本語テスト: シャープ ブレイン」efont/IPA)
   - 英数テキスト・塗り矩形・円 OK
@@ -72,7 +72,7 @@ Phase 0 スクショ(11:28)取得後に c_src を papapa 同一版へ揃えて�
 - 実機配備済み .so の md5 がローカル最新ビルドと**一致**(SSH で実測)。
 - Supervisor children = `GfxDemo + SshDaemon`(検証構成どおり)。
 - **Moving Icons デモ実機動作 OK**: 画面キャプチャ
-  [img/lovyangfx_moving_icons.png](img/lovyangfx_moving_icons.png)。
+  [assets/lovyangfx_moving_icons.png](../worklog/assets/lovyangfx_moving_icons.png)。
   スプライト 50 個 + アルファ合成で **fps 11**(画面左上 `obj:50 fps:11`)。
   日本語オーバーレイ(「MovingIcons 実行中」「タッチでホームへ戻る」)も描画良好。
 - 2回キャプチャで画像差分あり = アニメーション進行中を確認。
