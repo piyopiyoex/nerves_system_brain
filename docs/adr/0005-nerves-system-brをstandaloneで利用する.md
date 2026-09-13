@@ -16,8 +16,8 @@
 ## 決定
 
 当面は `nerves_system_br` の `create-build.sh` を直接使用する standalone 構成とする。
-このリポジトリは Buildroot の設定と rootfs overlay を管理し、アプリケーションは
-`hello_kiosk_brain` で管理する。
+このリポジトリは Buildroot の設定と rootfs overlay を管理する。動作例のアプリケーションは
+`examples/hello_kiosk/` に同梱するが、Nerves システム側からは依存しない。
 
 生成した rootfs、対象機向け Erlang/OTP、アプリケーション release は、既存の SD カード構成へ
 明示的な手順で配置する。
@@ -26,7 +26,7 @@
 
 - rootfs の成立確認に必要な変更だけへ範囲を限定できる。
 - U-Boot、カーネル、区画構成を変更せず、既知の起動環境を維持できる。
-- system 固有処理とアプリケーション固有処理を別のリポジトリに保てる。
+- system 固有処理とアプリケーション固有処理の責務を分離できる。
 
 ## 影響
 

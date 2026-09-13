@@ -21,11 +21,11 @@ Mix アプリ名と release 名は既存環境との互換性のため `hello_ki
 
 | ホーム | タッチ |
 |---|---|
-| ![ホーム](docs/img/kiosk_home_ja.png) | ![タッチ](docs/img/kiosk_touch_ja.png) |
+| ![ホーム](docs/worklog/assets/kiosk_home_ja.png) | ![タッチ](docs/worklog/assets/kiosk_touch_ja.png) |
 
 | キー | デモ |
 |---|---|
-| ![キー](docs/img/kiosk_keys_ja.png) | ![デモ](docs/img/kiosk_demo_ja.png) |
+| ![キー](docs/worklog/assets/kiosk_keys_ja.png) | ![デモ](docs/worklog/assets/kiosk_demo_ja.png) |
 
 - **ホーム**: 稼働秒数とサブシステム状態の一覧。「メモリ」は **`使用量 / 総量 MB`**（左＝使用量 `MemTotal-MemAvailable`、右＝総 RAM `MemTotal`。128MiB 機で約 112MB 総量。例 `38 / 112 MB` は使用 38MB・空き約 74MB）
 - **タッチ**: タップ位置に点を描画、座標表示（タッチは実機校正 + Y 反転）
@@ -64,7 +64,7 @@ SD の作成・初回配備はリポジトリルートの `sd/` 以下を使用�
 > **SSH / crng**: 初期実装では起動直後の乱数初期化と SSH crypto 処理が UI を
 > 長時間ブロックする問題があった。現在は SSH の遅延起動・モジュール分散ロード・
 > 軽量なパスワード検証で回避している。調査経緯は
-> [docs/20260903_SSH起動不能_セカンドオピニオン質問書.md](docs/20260903_SSH起動不能_セカンドオピニオン質問書.md) 参照。
+> [docs/worklog/20260903_SSH起動不能_セカンドオピニオン質問書.md](docs/worklog/20260903_SSH起動不能_セカンドオピニオン質問書.md) 参照。
 
 ## 開発サイクル（SD 往復不要）
 
@@ -89,7 +89,7 @@ ssh user@10.42.0.2 ':code.purge(Mod); :code.load_file(Mod); GenServer.stop(Hello
 | `HelloKioskBrain.Native` | LovyanGFX 描画 NIF ローダ（init_display / render / MovingIcons）。hello_kiosk_papapa と同一構成 |
 | `HelloKioskBrain.Draw` | 描画コマンド DSL（clear/rect/line/circle/text…、日本語 jp8〜jp40）。NIF 非依存の純粋関数 |
 | `HelloKioskBrain.Kiosk` | KIOSK デモ GUI（下部バー7ボタン=ホーム/タッチ/キー/デモ/予備1/予備2/電源を切る、物理キー15/104/109/110/111 と対応、電池/IP/時計、電源OFF確認）。LovyanGFX NIF 描画 |
-| `HelloKioskBrain.Backlight` | LCD バックライト sysfs ラッパ（現状**未使用**。PW-SH6 はバックライトを独立制御できないと実機で判明。[調査結論](docs/20260904_バックライト制御線_調査結論.md)参照） |
+| `HelloKioskBrain.Backlight` | LCD バックライト sysfs ラッパ（現状**未使用**。PW-SH6 はバックライトを独立制御できないと実機で判明。[調査結論](docs/adr/0003-バックライト制御線_調査結論.md)参照） |
 | `HelloKioskBrain.Fb` | 旧・シャドウフレーム描画（フォールバックとして残置） |
 | `HelloKioskBrain.Font` | 旧・5×7 ビットマップフォント（Fb 用、残置） |
 | `HelloKioskBrain.Input` | evdev 読取り（タッチ event1 / キー event0）。タッチは実機校正 + Y 反転済み |
@@ -101,38 +101,53 @@ ssh user@10.42.0.2 ':code.purge(Mod); :code.load_file(Mod); GenServer.stop(Hello
 
 ## ドキュメント
 
-`docs/` 配下。日付順・カテゴリ別。★=最新/現行の論点。
+`docs/` は、今後も参照する判断・結論と、作業時点の記録を分けて管理する。
 
-### 構築・実装(完了)
-- [構築方法提案書（計画と進捗ステータス）](docs/20260831_構築方法提案書.md)
-- [Phase 0-1 実機検証作業報告書](docs/20260902_Phase0-1_実機検証作業報告書.md)
-- [Phase 2-4 Nerves化実装報告書（実装仕様・ハマりどころ・残タスク）](docs/20260902_Phase2-4_Nerves化実装報告書.md)
-- [母艦-Brain 接続手順書（日常運用・トラブルシュート）](docs/20260902_母艦_Brain_接続手順書.md)
-- [作業引き継ぎ書（2026-09-03 時点の全体像）](docs/20260903_作業引き継ぎ書.md)
+- `docs/adr/`: 実装や今後の方針に影響する決定・確定した技術的結論
+- `docs/worklog/`: 提案、調査過程、実装報告、手順、質問書、引き継ぎなどの時系列記録
 
-### 描画: LovyanGFX 日本語 UI(完了・実機動作)
-- [LovyanGFX 導入計画書](docs/20260904_LovyanGFX導入計画書.md)
-- [Phase 0 + NIF 移植報告書](docs/20260904_LovyanGFX_Phase0_NIF移植報告書.md)
-- [Phase 2 KIOSK 日本語 UI 報告書](docs/20260904_LovyanGFX_Phase2_KIOSK日本語UI報告書.md)
+日付付き文書は作成時点の記録。後続文書で結論が更新されている場合は、`docs/adr/` の文書を優先する。
 
-### 音声・タッチ音(方針転換: USB オーディオを本命に)
-- ★[音声方針転換: USB オーディオを本命に（オンボード codec は凍結）](docs/20260905_音声方針転換_USBオーディオ.md)
-- [KIOSKデモ完成 + タッチ音 初期調査記録](docs/20260904_KIOSKデモ完成_タッチ音調査記録.md)
-- [タッチ音(PWM ブザー)調査 結論](docs/20260904_タッチ音_PWM調査結論.md)
-- [音声 SGTL5000 セカンドオピニオン質問書（版1-4 の往復記録）](docs/20260904_音声SGTL5000_セカンドオピニオン質問書.md)
-- [音声調査 結論: DTBと実機I2C不一致（SGTL5000@0x0a は不在）](docs/20260904_音声調査結論_DTBと実機I2C不一致.md)
-- [音声 0x1aコーデック同定 作業報告兼質問書（NAU8822 否定寄り／read プロトコル異常・ソフト同定は限界）](docs/20260904_音声0x1aコーデック同定_作業報告兼質問書.md)
+### ADR
 
-### バックライト・起動時タッチ遅延(調査完了)
-- [バックライト制御線 調査結論（PW-SH6 は独立制御不可・LCD 一体）](docs/20260904_バックライト制御線_調査結論.md)
-- [起動時タッチ遅延 調査（真因=SSH crypto、SSH 起動遅延で解消）](docs/20260904_起動時タッチ遅延_調査.md)
+- [LovyanGFX: Port ではなく NIF を採用](docs/adr/0001-LovyanGFX_NIF移植.md)
+- [タッチ音(PWM ブザー): DT/pinmux では解決しない](docs/adr/0002-タッチ音_PWM調査結論.md)
+- [バックライト: PW-SH6 では独立制御不可](docs/adr/0003-バックライト制御線_調査結論.md)
+- [音声: DTB の SGTL5000 定義と実機 I2C 構成が不一致](docs/adr/0004-音声_DTBと実機I2C不一致.md)
+- [電源OFF: 5V 接続中は電源断状態を維持できない](docs/adr/0005-電源OFF_5V接続中.md)
+- [音声: オンボード codec を凍結し USB オーディオを本命にする](docs/adr/0006-USBオーディオを採用する.md)
+- [USB 無線/BLE: カーネル再ビルド方針](docs/adr/0007-USB無線_カーネル再ビルド方針.md)
 
-### 電源(調査完了)
-- ★[電源 ON/OFF・スタンバイ 調査報告](docs/20260904_電源ONOFF_スタンバイ調査.md)
-- [電源OFF(5V接続中) 調査結論（i.MX28 は 5V 存在中に電源断を維持できない＝シリコン仕様）](docs/20260905_電源OFF_5V接続中_調査結論.md)
+### Worklog
 
-### SSH / ネットワーク・OTA(提案・保留)
-- [SSH起動不能 セカンドオピニオン質問書（crng 初期化・SSH 起動調査の経緯）](docs/20260903_SSH起動不能_セカンドオピニオン質問書.md)
-- [有線LAN化 USBホスト 提案書](docs/20260903_有線LAN化_USBホスト_提案書.md)
-- [Phase0 USBホスト有線LAN 実機検証手順書](docs/20260903_Phase0_USBホスト有線LAN_実機検証手順書.md)
-- [OTA導入 / USBガジェット停止 提案書](docs/20260903_OTA導入_USBガジェット停止_提案書.md)
+#### 構築・実装
+- [構築方法提案書（計画と進捗ステータス）](docs/worklog/20260831_構築方法提案書.md)
+- [Phase 0-1 実機検証作業報告書](docs/worklog/20260902_Phase0-1_実機検証作業報告書.md)
+- [Phase 2-4 Nerves化実装報告書（実装仕様・ハマりどころ・残タスク）](docs/worklog/20260902_Phase2-4_Nerves化実装報告書.md)
+- [母艦-Brain 接続手順書（日常運用・トラブルシュート）](docs/worklog/20260902_母艦_Brain_接続手順書.md)
+- [作業引き継ぎ書（2026-09-03 時点の全体像）](docs/worklog/20260903_作業引き継ぎ書.md)
+
+#### 描画 / KIOSK
+- [LovyanGFX 導入計画書](docs/worklog/20260904_LovyanGFX導入計画書.md)
+- [Phase 2 KIOSK 日本語 UI 報告書](docs/worklog/20260904_LovyanGFX_Phase2_KIOSK日本語UI報告書.md)
+- [KIOSKデモ完成 + タッチ音 初期調査記録](docs/worklog/20260904_KIOSKデモ完成_タッチ音調査記録.md)
+- [起動時タッチ遅延 調査](docs/worklog/20260904_起動時タッチ遅延_調査.md)
+
+#### 音声 / 電源 / ハードウェア調査
+- [音声 SGTL5000 セカンドオピニオン質問書](docs/worklog/20260904_音声SGTL5000_セカンドオピニオン質問書.md)
+- [音声 0x1a コーデック同定 作業報告兼質問書](docs/worklog/20260904_音声0x1aコーデック同定_作業報告兼質問書.md)
+- [電源 ON/OFF・スタンバイ 調査報告](docs/worklog/20260904_電源ONOFF_スタンバイ調査.md)
+
+#### SSH / ネットワーク / USB
+- [SSH 起動不能 セカンドオピニオン質問書](docs/worklog/20260903_SSH起動不能_セカンドオピニオン質問書.md)
+- [OTA 導入 / USB ガジェット停止 提案書](docs/worklog/20260903_OTA導入_USBガジェット停止_提案書.md)
+- [有線 LAN 化 USB ホスト 提案書](docs/worklog/20260903_有線LAN化_USBホスト_提案書.md)
+- [Phase 0 USB ホスト有線 LAN 実機検証手順書](docs/worklog/20260903_Phase0_USBホスト有線LAN_実機検証手順書.md)
+- [有線 LAN 化 USB ホスト 実施記録](docs/worklog/20260905_有線LAN化_USBホスト_実施記録.md)
+- [UWF-1 / AR9271 USB ハング セカンドオピニオン質問書](docs/worklog/20260906_UWF1_AR9271_USBハング_セカンドオピニオン質問書.md)
+- [USB High-Speed 化 セカンドオピニオン質問書](docs/worklog/20260906_USB_HighSpeed化_セカンドオピニオン質問書.md)
+
+#### 引き継ぎ / 実測
+- [作業引き継ぎ書（キー111 / バックライト）](docs/worklog/20260904_作業引き継ぎ書_キー111バックライト.md)
+- [作業引き継ぎ書（2026-09-05 セッション交代）](docs/worklog/20260905_作業引き継ぎ書_セッション交代.md)
+- [メモリ使用量 実測内訳（128MB 機）](docs/worklog/20260906_メモリ使用量_実測内訳.md)

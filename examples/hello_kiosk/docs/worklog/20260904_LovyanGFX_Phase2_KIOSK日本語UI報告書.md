@@ -2,7 +2,7 @@
 
 - 日付: 2026-09-04
 - プロジェクト: hello_kiosk_brain(SHARP Brain PW-SH6)
-- 前提: [20260904_LovyanGFX_Phase0_NIF移植報告書.md](20260904_LovyanGFX_Phase0_NIF移植報告書.md)
+- 前提: [20260904_LovyanGFX_Phase0_NIF移植報告書.md](../adr/0001-LovyanGFX_NIF移植.md)
 - 結論: **Kiosk の描画を自作 Fb → LovyanGFX NIF へ全面移行し、日本語 UI で
   正式構成(Battery + Input + SshDaemon + Kiosk)の実機動作を確認**。
   計画書の Phase 2 完了条件「KIOSK 3画面が LovyanGFX 描画で再現、日本語可」を達成。
@@ -42,10 +42,10 @@ fb0 ダンプで全画面を確認:
 
 | 画面 | 確認内容 | スクショ |
 |---|---|---|
-| ホーム | 日本語タイトル・稼働秒・電池 59% 3835mV・IP・状態一覧・タブ | [img/kiosk_home_ja.png](img/kiosk_home_ja.png) |
-| タッチ | タブタップで遷移、座標表示、タップ位置に点 | [img/kiosk_touch_ja.png](img/kiosk_touch_ja.png) |
-| キー | キーコード表示(コード 30 例)、キー 3 で遷移 | [img/kiosk_keys_ja.png](img/kiosk_keys_ja.png) |
-| デモ | MovingIcons 起動(50 個 11fps)→ タッチでホーム復帰、稼働秒・電池は継続更新 | [img/lovyangfx_moving_icons.png](img/lovyangfx_moving_icons.png) |
+| ホーム | 日本語タイトル・稼働秒・電池 59% 3835mV・IP・状態一覧・タブ | [assets/kiosk_home_ja.png](assets/kiosk_home_ja.png) |
+| タッチ | タブタップで遷移、座標表示、タップ位置に点 | [assets/kiosk_touch_ja.png](assets/kiosk_touch_ja.png) |
+| キー | キーコード表示(コード 30 例)、キー 3 で遷移 | [assets/kiosk_keys_ja.png](assets/kiosk_keys_ja.png) |
+| デモ | MovingIcons 起動(50 個 11fps)→ タッチでホーム復帰、稼働秒・電池は継続更新 | [assets/lovyangfx_moving_icons.png](assets/lovyangfx_moving_icons.png) |
 
 ### 2.2 正式構成ブート検証
 - Kiosk.beam + Application.beam を `/srv/erlang/lib/hello_kiosk_brain-0.1.0/ebin/`
