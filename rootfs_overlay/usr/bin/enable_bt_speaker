@@ -14,13 +14,14 @@ log=/root/bt.log
 [ -f "$conf" ] || exit 0
 echo "enable_bt_speaker start uptime=$(cat /proc/uptime 2>/dev/null)" > "$log"
 {
-    /bin/mkdir -p /var/run/dbus /var/lib/bluetooth /tmp
-    /bin/rm -f /var/run/dbus/pid /var/run/dbus/system_bus_socket
+    # libdbus clients look for /run/dbus/system_bus_socket (not /var/run on Nerves: no symlink)
+    /bin/mkdir -p /run/dbus /var/lib/bluetooth /tmp
+    /bin/rm -f /run/dbus/pid /run/dbus/system_bus_socket
 
     /usr/bin/dbus-daemon --config-file=/etc/dbus-1/brain-system.conf >> "$log" 2>&1
     n=0
-    while [ ! -S /var/run/dbus/system_bus_socket ] && [ "$n" -lt 10 ]; do sleep 1; n=$((n+1)); done
-    echo "dbus socket after ${n}s: $(ls -la /var/run/dbus/ 2>/dev/null | grep -c socket)" >> "$log"
+    while [ ! -S /run/dbus/system_bus_socket ] && [ "$n" -lt 10 ]; do sleep 1; n=$((n+1)); done
+    echo "dbus socket after ${n}s: $([ -S /run/dbus/system_bus_socket ] && echo present || echo MISSING)" >> "$log"
 
     # wait up to 20s for the USB dongle (btusb + rtl_bt firmware) to appear as hci0
     m=0
@@ -31,6 +32,6 @@ echo "enable_bt_speaker start uptime=$(cat /proc/uptime 2>/dev/null)" > "$log"
     sleep 3
     /usr/bin/bluealsa -p a2dp-source >> "$log" 2>&1 &
     sleep 1
-    echo "daemons: $(ps 2>/dev/null | grep -E 'dbus-daemon|bluetoothd|bluealsa' | grep -v grep | wc -l)" >> "$log"
+    echo "daemons: $(ps 2>/dev/null | grep -E 'dbus-daemon|bluetoothd|bluealsa' | grep -vc grep)" >> "$log"
 } </dev/null >>"$log" 2>&1 &
 exit 0
