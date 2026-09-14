@@ -30,7 +30,9 @@ echo "enable_bt_speaker start uptime=$(cat /proc/uptime 2>/dev/null)" > "$log"
 
     /usr/libexec/bluetooth/bluetoothd -n --noplugin=sap,hostname,autopair >> "$log" 2>&1 &
     sleep 3
-    /usr/bin/bluealsa -p a2dp-source >> "$log" 2>&1 &
+    # keep-alive: keep the A2DP transport open after the last aplay so short sounds (touch.wav
+    # = 70ms) are not swallowed by the speaker's stream start-up gap
+    /usr/bin/bluealsa -p a2dp-source --keep-alive=120 >> "$log" 2>&1 &
     sleep 1
     echo "daemons: $(ps 2>/dev/null | grep -E 'dbus-daemon|bluetoothd|bluealsa' | grep -vc grep)" >> "$log"
 } </dev/null >>"$log" 2>&1 &
