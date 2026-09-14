@@ -134,7 +134,18 @@ dtc -I dts -O dtb pwsh6.dts -o imx28-pwsh6-peripheral.dtb
 
 ## クレジット / ライセンス
 
-カーネル・U-Boot・DTB・配布イメージは
+本リポジトリで作成したプログラムは、原則として Apache License 2.0 の下で公開する。
+文書とスクリーンショットは主に CC-BY-4.0、著作物性の低い設定・管理用ファイルは
+CC0-1.0 として整理している。ファイル単位の著作権・ライセンス情報は
+[`REUSE.toml`](REUSE.toml) と [`LICENSES/`](LICENSES/) を参照。
+
+カーネル・U-Boot・配布イメージは
 [brain-hackers](https://github.com/brain-hackers) プロジェクトの成果物（本リポジトリには
-再配布用バイナリを含めない）。Nerves システムのビルド基盤は
-[nerves-project](https://github.com/nerves-project)。
+再配布用バイナリを含めない）。`sd/` の Device Tree ソースと生成済み DTB は
+[brain-hackers/linux-brain](https://github.com/brain-hackers/linux-brain) 由来で、
+元の GPL-2.0-or-later の扱いを保持している。
+
+Nerves システムのビルド基盤は [nerves-project](https://github.com/nerves-project)。
+`examples/hello_kiosk/` の LovyanGFX `MovingIcons` 由来アイコンデータは、
+[LovyanGFX](https://github.com/lovyan03/LovyanGFX) の BSD-2-Clause 系ライセンスに
+基づいて追跡している。詳細なクレジットは [`NOTICE`](NOTICE) を参照。
