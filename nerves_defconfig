@@ -50,3 +50,14 @@ BR2_PACKAGE_IW=y
 # USB audio playback (tinyalsa: tinyplay/tinymix/tinycap; self-contained, no ALSA config files)
 BR2_PACKAGE_TINYALSA=y
 BR2_PACKAGE_TINYALSA_TOOLS=y
+
+# Bluetooth speaker output (A2DP source): bluetoothd + dbus + BlueALSA, played via aplay -D bluealsa
+# (docs/20260911_ブルートゥーススピーカー_接続提案書.md 案B). bluez-alsa selects alsa-lib/sbc/libglib2.
+BR2_PACKAGE_DBUS=y
+BR2_PACKAGE_BLUEZ5_UTILS=y
+BR2_PACKAGE_BLUEZ5_UTILS_CLIENT=y
+BR2_PACKAGE_BLUEZ5_UTILS_PLUGINS_AUDIO=y
+BR2_PACKAGE_BLUEZ_ALSA=y
+BR2_PACKAGE_ALSA_UTILS=y
+BR2_PACKAGE_ALSA_UTILS_APLAY=y
+BR2_PACKAGE_ALSA_UTILS_AMIXER=y

@@ -21,4 +21,6 @@ fi
 
 /usr/bin/enable_wired_lan
 /usr/bin/enable_wifi
+# Bluetooth speaker stack (only if /root/bt_speaker.conf exists; backgrounds itself)
+[ -x /usr/bin/enable_bt_speaker ] && /usr/bin/enable_bt_speaker
 exit 0

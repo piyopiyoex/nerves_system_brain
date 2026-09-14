@@ -1,0 +1,36 @@
+#!/bin/sh
+# Bluetooth speaker (A2DP source) bring-up for the Brain KIOSK. Called from enable_net.
+# Runs only when /root/bt_speaker.conf exists (per-unit setting, like wpa_supplicant.conf):
+#     MAC=AA:BB:CC:DD:EE:FF      # speaker address (required)
+#     NAME=ZoeeTree S1+          # display name (optional)
+# Without the file the BT dongle stays free for the SwitchBot BLE scanner (HCI USER channel);
+# with it, bluetoothd owns hci0 and the scanner backs off (they are mutually exclusive).
+#
+# Stack: dbus-daemon (system bus, root, /etc/dbus-1/brain-system.conf) -> bluetoothd
+# (/etc/bluetooth/main.conf, AutoEnable) -> bluealsa -p a2dp-source. Pairing/connect and
+# playback (aplay -D bluealsa) are driven from Elixir (HelloKioskBrain.BtSpeaker / Audio).
+conf=/root/bt_speaker.conf
+log=/root/bt.log
+[ -f "$conf" ] || exit 0
+echo "enable_bt_speaker start uptime=$(cat /proc/uptime 2>/dev/null)" > "$log"
+{
+    /bin/mkdir -p /var/run/dbus /var/lib/bluetooth /tmp
+    /bin/rm -f /var/run/dbus/pid /var/run/dbus/system_bus_socket
+
+    /usr/bin/dbus-daemon --config-file=/etc/dbus-1/brain-system.conf >> "$log" 2>&1
+    n=0
+    while [ ! -S /var/run/dbus/system_bus_socket ] && [ "$n" -lt 10 ]; do sleep 1; n=$((n+1)); done
+    echo "dbus socket after ${n}s: $(ls -la /var/run/dbus/ 2>/dev/null | grep -c socket)" >> "$log"
+
+    # wait up to 20s for the USB dongle (btusb + rtl_bt firmware) to appear as hci0
+    m=0
+    while [ ! -e /sys/class/bluetooth/hci0 ] && [ "$m" -lt 20 ]; do sleep 1; m=$((m+1)); done
+    echo "hci0 after ${m}s: $([ -e /sys/class/bluetooth/hci0 ] && echo present || echo MISSING)" >> "$log"
+
+    /usr/libexec/bluetooth/bluetoothd -n --noplugin=sap,hostname,autopair >> "$log" 2>&1 &
+    sleep 3
+    /usr/bin/bluealsa -p a2dp-source >> "$log" 2>&1 &
+    sleep 1
+    echo "daemons: $(ps 2>/dev/null | grep -E 'dbus-daemon|bluetoothd|bluealsa' | grep -v grep | wc -l)" >> "$log"
+} </dev/null >>"$log" 2>&1 &
+exit 0
