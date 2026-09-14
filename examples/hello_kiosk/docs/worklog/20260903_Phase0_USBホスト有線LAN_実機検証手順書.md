@@ -1,5 +1,7 @@
 # Phase 0 実機検証手順書：USB Host + USB-Ethernet 有線 LAN
 
+> **Worklog**: この文書は作成時点の調査・作業記録です。現在の判断は [`../README.md`](../README.md) と [`../adr/`](../adr/) を優先してください。
+
 - 日付: 2026-09-03
 - 対象: SHARP Brain PW-SH6（i.MX283 / ChipIdea OTG USB）
 - 前提: **既に SSH が動く Brainux 環境**で実施（Nerves は一切いじらない）

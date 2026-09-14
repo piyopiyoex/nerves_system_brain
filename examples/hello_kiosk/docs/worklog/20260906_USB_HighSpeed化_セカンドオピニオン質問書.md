@@ -1,5 +1,7 @@
 # セカンドオピニオン質問書(第2弾)：i.MX28 USB ホストが High-Speed にならない原因の切り分け
 
+> **Worklog**: この文書は作成時点の調査・作業記録です。現在の判断は [`../README.md`](../README.md) と [`../adr/`](../adr/) を優先してください。
+
 - 日付: 2026-09-06
 - プロジェクト: hello_kiosk_brain(SHARP Brain PW-SH6 / i.MX283 ARMv5 / Linux 6.1.70)
 - 前提: [20260906_UWF1_AR9271_USBハング_セカンドオピニオン質問書.md](20260906_UWF1_AR9271_USBハング_セカンドオピニオン質問書.md)

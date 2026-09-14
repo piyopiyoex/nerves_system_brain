@@ -1,5 +1,7 @@
 # LovyanGFX Phase 2 完了報告書: KIOSK 日本語 UI 化 + 正式構成復帰
 
+> **Worklog**: この文書は作成時点の調査・作業記録です。現在の判断は [`../README.md`](../README.md) と [`../adr/`](../adr/) を優先してください。
+
 - 日付: 2026-09-04
 - プロジェクト: hello_kiosk_brain(SHARP Brain PW-SH6)
 - 前提: [20260904_LovyanGFX_Phase0_NIF移植報告書.md](../adr/0001-LovyanGFX_NIF移植.md)

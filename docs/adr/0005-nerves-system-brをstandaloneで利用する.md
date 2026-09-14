@@ -33,5 +33,13 @@
 - 現在のビルドと配置は `mix firmware` や `fwup` だけでは完結しない。
 - `nerves_system_br` の版を明示的に固定し、standalone のビルド手順を保守する必要がある。
 - rootfs、Erlang/OTP、アプリケーション release の配置手順が分かれている。
-- 起動とストレージが安定した後、通常の Nerves System package、system artifact、`fwup`、
-  A/B 更新へ移行する価値を改めて評価する。
+- 通常の Nerves System package、system artifact、`fwup`、A/B 更新は、再評価条件が
+  生じた場合に採否を判断する。
+
+## 再評価条件
+
+- 他の Nerves アプリから通常の System dependency として利用したくなった場合。
+- firmware 生成・更新を `fwup` に統一する必要が生じた場合。
+- 現在の rootfs / OTP / release の分割配置が開発・運用上の負担になった場合。
+
+再評価条件に該当するまでは、Mix System package や `fwup` の未導入を未完了タスクとは扱わない。

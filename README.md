@@ -5,6 +5,9 @@ LCD 854×480）向けのカスタム Nerves システム。
 
 動作例として `examples/hello_kiosk/` に `hello_kiosk_brain` を同梱する。
 
+設計の全体像と「標準 Nerves に寄せる部分 / Brain 固有として残す部分」の考え方は
+[`docs/README.md`](docs/README.md) を参照。
+
 ## 方針
 
 - `nerves_system_br`（v1.34.3 / Buildroot 2026.05.2）を standalone で使用
@@ -25,7 +28,7 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `sd/imx28-pwsh6-peripheral.dtb` | **USB を device モード化した DTB**（後述）/ `pwsh6.dts` はその DTS |
 | `sd/*.sh` | SD の作成・配備スクリプト |
 | `examples/hello_kiosk/` | PW-SH6 で動作確認済みの Elixir KIOSK 動作例 |
-| `docs/adr/` | 今後も参照する必要がある設計判断の記録 |
+| `docs/` | アーキテクチャ概要と ADR（設計判断） |
 
 ## ビルド
 

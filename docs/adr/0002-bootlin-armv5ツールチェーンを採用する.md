@@ -32,3 +32,9 @@ Buildroot が提供する Bootlin `armv5-eabi--glibc--stable` ツールチェー
 - `lns` や NIF などのネイティブコードも、同じ ABI のクロスコンパイラで構築する必要がある。
 - ツールチェーンの版を更新する場合は、生成物の ABI と PW-SH6 上での動作を再確認する。
 - 独自の Nerves toolchain パッケージは、必要性が明確になるまで作成しない。
+
+## 再評価条件
+
+- Bootlin の対象 toolchain が取得・再現できなくなった場合。
+- Nerves 公式/コミュニティの ARMv5 toolchain を利用する明確な利点が生じた場合。
+- toolchain 更新が必要になった場合は、ABI と OTP/NIF の実機動作を含めて再評価する。

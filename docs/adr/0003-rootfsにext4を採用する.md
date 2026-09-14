@@ -31,4 +31,10 @@ rootfs には ext4 を採用する。Buildroot では 256 MiB の ext4 image と
 - rootfs は書き込み可能であり、電源断による破損への耐性は read-only rootfs より低い。
 - 現時点では `fwup`、A/B 更新、read-only rootfs の恩恵を利用できない。
 - SD カード作成時には対象区画を再初期化するため、誤ったデバイスを選ばない安全対策が必要となる。
-- squashfs への移行は、対応カーネルと実機での起動を検証できる段階で改めて判断する。
+- read-only rootfs への移行は必須とはせず、対応カーネルと運用上の必要性が揃った場合に再評価する。
+
+## 再評価条件
+
+- 電源断耐性や field update を重視する運用へ移る場合。
+- 対応 kernel で read-only rootfs を安定して利用できる見通しが立った場合。
+- system data と永続データを分離し、A/B 更新や `fwup` を採用する価値が出た場合。

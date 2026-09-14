@@ -35,3 +35,9 @@ USB controller は Device Tree で `dr_mode = "peripheral"` とし、`erlinit` �
 - USB host 化や別の通信経路への変更は、本 ADR を置き換える判断として記録し、PW-SH6
   実機で検証する。
 - USB NCM は開発用通信経路であり、製品運用時の通信方式を確定するものではない。
+
+## 再評価条件
+
+- USB ポートを host として常用する必要が生じた場合。
+- 有線 LAN / WiFi など別の通信経路を標準の開発経路にする場合。
+- 複数台運用に合わせて IP / MAC / serial の管理方式を変更する場合。

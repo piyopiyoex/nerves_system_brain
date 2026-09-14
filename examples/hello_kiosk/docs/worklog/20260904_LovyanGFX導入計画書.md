@@ -1,5 +1,7 @@
 # LovyanGFX 導入計画書
 
+> **Worklog**: この文書は作成時点の調査・作業記録です。現在の判断は [`../README.md`](../README.md) と [`../adr/`](../adr/) を優先してください。
+
 - 日付: 2026-09-04
 - プロジェクト: hello_kiosk_brain（SHARP Brain PW-SH6）
 - 目的: 自作の最小描画（5×7 ビットマップフォント）を **LovyanGFX** に置き換え、

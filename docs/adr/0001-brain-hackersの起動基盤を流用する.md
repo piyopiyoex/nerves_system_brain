@@ -34,4 +34,10 @@ Device Tree の変更は、USB gadget に必要な `dr_mode = "peripheral"` な�
   成果物が必要となる。
 - buildbrain のリリースと成果物を明示的に固定し、由来を記録する必要がある。
 - カーネル、Device Tree、起動処理を変更する場合は、PW-SH6 実機での再検証が必要となる。
-- 完全な Nerves のファームウェア生成方式への移行は、起動環境が安定した後に改めて判断する。
+- 完全な Nerves のファームウェア生成方式への移行は必須とはせず、必要性が生じた場合に再評価する。
+
+## 再評価条件
+
+- `nerves_system_brain` 単体で再現可能な firmware を生成する必要が生じた場合。
+- brain-hackers の固定成果物では必要な kernel / bootloader 機能を満たせなくなった場合。
+- kernel や U-Boot を本プロジェクト側で保守する利点が、その検証・保守コストを上回る場合。
