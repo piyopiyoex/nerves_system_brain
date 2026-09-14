@@ -1,0 +1,117 @@
+version = 1
+
+# Repository metadata and low-authorship configuration.
+[[annotations]]
+path = [
+  ".gitignore",
+  "VERSION",
+  "NOTICE",
+  "REUSE.toml",
+  "examples/hello_kiosk/.formatter.exs",
+  "examples/hello_kiosk/.gitignore",
+  "examples/hello_kiosk/.tool-versions",
+  "examples/hello_kiosk/mise.toml",
+  "nerves_defconfig",
+  "rootfs_overlay/etc/erlinit.config"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "None"
+SPDX-License-Identifier = "CC0-1.0"
+
+# Documentation and project-created screenshots.
+[[annotations]]
+path = [
+  "README.md",
+  "docs/*.md",
+  "docs/adr/*.md",
+  "examples/hello_kiosk/README.md",
+  "examples/hello_kiosk/brain_screen.png",
+  "examples/hello_kiosk/docs/*.md",
+  "examples/hello_kiosk/docs/adr/*.md",
+  "examples/hello_kiosk/docs/worklog/*.md",
+  "examples/hello_kiosk/docs/worklog/assets/kiosk_*.png",
+  "examples/hello_kiosk/docs/worklog/assets/lovyangfx_ja_phase0.png",
+  "examples/hello_kiosk/priv/ssh/README.md"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 nerves_system_brain contributors"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# Buildroot external-tree glue. Keep this aligned with Buildroot's GPL-2.0-or-later terms.
+[[annotations]]
+path = [
+  "Config.in",
+  "external.mk",
+  "package/lns/Config.in",
+  "package/lns/lns.mk",
+  "post-build.sh"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = [
+  "The Buildroot developers <buildroot@buildroot.org>",
+  "2026 nerves_system_brain contributors"
+]
+SPDX-License-Identifier = "GPL-2.0-or-later"
+
+# Repository-authored programs and test code.
+[[annotations]]
+path = [
+  "examples/hello_kiosk/Makefile",
+  "examples/hello_kiosk/c_src/gfx_test.cpp",
+  "examples/hello_kiosk/c_src/kiosk_draw.hpp",
+  "examples/hello_kiosk/c_src/kiosk_nif.cpp",
+  "examples/hello_kiosk/lib/hello_kiosk_brain.ex",
+  "examples/hello_kiosk/lib/hello_kiosk_brain/*.ex",
+  "examples/hello_kiosk/mix.exs",
+  "examples/hello_kiosk/priv/bin/devmem",
+  "examples/hello_kiosk/scripts/*.sh",
+  "examples/hello_kiosk/src/*.c",
+  "examples/hello_kiosk/test/*.c",
+  "examples/hello_kiosk/test/*.exs",
+  "package/lns/lns.c",
+  "rootfs_overlay/usr/bin/enable_ethernet_gadget",
+  "sd/*.sh",
+  "sd/lib/*.sh"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 nerves_system_brain contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Icon data extracted from the LovyanGFX MovingIcons example and transformed for the kiosk demo.
+[[annotations]]
+path = [
+  "examples/hello_kiosk/c_src/icons.cpp",
+  "examples/hello_kiosk/lib/hello_kiosk_brain/icons.ex"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = [
+  "2020 lovyan03",
+  "2026 nerves_system_brain contributors"
+]
+SPDX-License-Identifier = "BSD-2-Clause"
+
+# Screenshot containing LovyanGFX MovingIcons-derived icon artwork.
+[[annotations]]
+path = [
+  "examples/hello_kiosk/docs/worklog/assets/lovyangfx_moving_icons.png"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = [
+  "2020 lovyan03",
+  "2026 nerves_system_brain contributors"
+]
+SPDX-License-Identifier = "BSD-2-Clause AND CC-BY-4.0"
+
+# Device Tree sources and compiled blobs derived from brain-hackers/linux-brain.
+[[annotations]]
+path = [
+  "sd/*.dts",
+  "sd/*.dtb"
+]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "2012 Freescale Semiconductor, Inc.",
+  "brain-hackers/linux-brain contributors",
+  "2026 nerves_system_brain contributors"
+]
+SPDX-License-Identifier = "GPL-2.0-or-later"
