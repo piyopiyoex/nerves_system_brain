@@ -25,7 +25,7 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `rootfs_overlay/etc/erlinit.config` | コンソール(tty1) + USB-NCM ガジェット自動起動 |
 | `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植） |
 | `package/lns/` | `symlink(2)` を呼ぶ静的ヘルパーの Buildroot package（BusyBox に `ln` が無いため） |
-| `sd/imx28-pwsh6-peripheral.dtb` | **USB を device モード化した DTB**（後述）/ `pwsh6.dts` はその DTS |
+| `sd/imx28-pwsh6-peripheral.{dts,dtb}` | USB NCM 用の peripheral 構成（[用途別の DTB 選択](sd/README.md)） |
 | `sd/*.sh` | SD の作成・配備スクリプト |
 | `examples/hello_kiosk/` | PW-SH6 で動作確認済みの Elixir KIOSK 動作例 |
 | `docs/` | アーキテクチャ概要と ADR（設計判断） |
@@ -109,21 +109,15 @@ sudo bash sd/update_erlinit.sh /dev/sdX
 sudo bash sd/update_gadget_v2.sh /dev/sdX
 ```
 
-### 重要: USB デバイスモード化 DTB（`imx28-pwsh6-peripheral.dtb`）
+### PW-SH6 の Device Tree 選択
 
-配布イメージの `imx28-pwsh6.dtb` は `usb@80080000` の `dr_mode` が **`host`** で、
-USB ガジェット（NCM）が動かない。**brain-config の「ガジェット有効化」の実体は、
-この dr_mode を `peripheral` に書き換えること**。本リポジトリの
-`sd/imx28-pwsh6-peripheral.dtb` はそのパッチ済み版。ブートパーティション(p1)の
-`imx28-pwsh6.dtb` をこれに置き換える。
+USB0 は用途によって host / peripheral のどちらかを選択する。brain-hackers の
+`imx28-pwsh6.dtb` は **host** 構成で、有線 LAN、USB Audio、USB 接続の WiFi / BLE
+などを使用するときの基準となる。USB NCM で開発用計算機と接続するときは、本リポジトリの
+`sd/imx28-pwsh6-peripheral.dtb` を使用する。
 
-配布イメージのオリジナル DTB からパッチを当てる手順:
-
-```sh
-dtc -I dtb -O dts imx28-pwsh6.dtb -o pwsh6.dts
-# pwsh6.dts の usb@80080000 内 dr_mode = "host" を "peripheral" に
-dtc -I dts -O dtb pwsh6.dts -o imx28-pwsh6-peripheral.dtb
-```
+`populate_sd.sh` は DTB を選択・置換しない。DTS / DTB の対応、再生成方法、SD カードへの
+配置方法は [`sd/README.md`](sd/README.md) を参照。
 
 ## SSH / crng メモ
 
