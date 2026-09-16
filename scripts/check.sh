@@ -41,7 +41,7 @@ require_command git
 require_command bash
 require_command sh
 require_command shellcheck
-require_command python3
+require_command elixir
 require_command dtc
 require_command cmp
 require_command mktemp
@@ -62,7 +62,7 @@ printf '==> shellcheck\n'
 shellcheck --severity=warning -x "${shell_files[@]}"
 
 printf '==> Markdown relative links\n'
-python3 scripts/check_markdown_links.py
+elixir scripts/check_markdown_links.exs
 
 printf '==> DTS / DTB consistency\n'
 tmp_dir=$(mktemp -d)
