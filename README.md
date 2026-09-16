@@ -27,6 +27,8 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `package/lns/` | `symlink(2)` を呼ぶ静的ヘルパーの Buildroot package（BusyBox に `ln` が無いため） |
 | `sd/imx28-pwsh6-peripheral.{dts,dtb}` | USB NCM 用の peripheral 構成（[用途別の DTB 選択](sd/README.md)） |
 | `sd/*.sh` | SD の作成・配備スクリプト |
+| `sd/deploy_release.sh` | 互換性のある Elixir release を `/srv/erlang` へ配置 |
+| `docs/release-deployment.md` | release の要件と System / application の責務分担 |
 | `examples/hello_kiosk/` | PW-SH6 で動作確認済みの Elixir KIOSK 動作例 |
 | `docs/` | アーキテクチャ概要と ADR（設計判断） |
 
@@ -98,10 +100,20 @@ sudo bash sd/populate_sd.sh /dev/sdX
 # 既定の o/ 以外を使用する場合はビルド出力ディレクトリも指定する
 sudo bash sd/populate_sd.sh /dev/sdX /path/to/build-output
 
-# 3) hello_kiosk_brain の初回リリースを配置する
+# 3) アプリケーション release を配置する
+sudo bash sd/deploy_release.sh /dev/sdX /path/to/release
+```
+
+`deploy_release.sh` はアプリケーション名に依存せず、完成済み release の内容を
+`/srv/erlang` へ配置する。同梱の `hello_kiosk` を配置する場合は次のように指定する。
+
+```sh
 sudo bash sd/deploy_release.sh /dev/sdX \
   examples/hello_kiosk/_build/prod/rel/hello_kiosk_brain
 ```
+
+release の要件と System / application の責務分担は
+[`docs/release-deployment.md`](docs/release-deployment.md) を参照。
 
 各スクリプトはパーティションとラベルを検査し、実行前に対象デバイスの情報を表示する。
 続行には表示されたデバイス名の再入力が必要。自動マウント済みの対象パーティションは

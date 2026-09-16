@@ -1,6 +1,6 @@
 #!/bin/bash
-# hello_kiosk_brain の初回リリースを SD カードの /srv/erlang へ配置する。
-# 以後の更新には SSH/SFTP を使用する。
+# Elixir application release を SD カードの /srv/erlang へ配置する。
+# release のビルドや更新方式はアプリケーション側で管理する。
 set -eu
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -10,7 +10,7 @@ SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 usage()
 {
 	printf '使用方法: sudo bash %s DEVICE RELEASE_DIR\n' "$0" >&2
-	printf '例: sudo bash %s /dev/sdX /path/to/hello_kiosk_brain/_build/prod/rel/hello_kiosk_brain\n' "$0" >&2
+	printf '例: sudo bash %s /dev/sdX /path/to/release\n' "$0" >&2
 	exit 2
 }
 
