@@ -1,5 +1,7 @@
 # nerves_system_brain
 
+<img width="500" src="https://github.com/user-attachments/assets/79d09845-98a6-45fc-9da7-69e0bbc3db88" />
+
 SHARP Brain 電子辞書 **PW-SH6**（NXP i.MX283 / ARMv5TEJ soft-float / 128MiB /
 LCD 854×480）向けのカスタム Nerves システム。
 
@@ -19,18 +21,18 @@ LCD 854×480）向けのカスタム Nerves システム。
 
 ## 構成
 
-| パス | 内容 |
-|---|---|
-| `nerves_defconfig` | Buildroot 設定（arm926t / Bootlin armv5 / ext4 / カーネル非ビルド） |
-| `rootfs_overlay/etc/erlinit.config` | PW-SH6 の bring-up / USB NCM 開発用設定（[詳細](docs/erlinit.md)） |
-| `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植） |
-| `package/lns/` | `symlink(2)` を呼ぶ静的ヘルパーの Buildroot package（BusyBox に `ln` が無いため） |
-| `sd/imx28-pwsh6-peripheral.{dts,dtb}` | USB NCM 用の peripheral 構成（[用途別の DTB 選択](sd/README.md)） |
-| `sd/*.sh` | SD の作成・配備スクリプト |
-| `sd/deploy_release.sh` | 互換性のある Elixir release を `/srv/erlang` へ配置 |
-| `docs/release-deployment.md` | release の要件と System / application の責務分担 |
-| `examples/hello_kiosk/` | PW-SH6 で動作確認済みの Elixir KIOSK 動作例 |
-| `docs/` | アーキテクチャ概要と ADR（設計判断） |
+| パス                                            | 内容                                                                              |
+| ----------------------------------------------- | --------------------------------------------------------------------------------- |
+| `nerves_defconfig`                              | Buildroot 設定（arm926t / Bootlin armv5 / ext4 / カーネル非ビルド）               |
+| `rootfs_overlay/etc/erlinit.config`             | PW-SH6 の bring-up / USB NCM 開発用設定（[詳細](docs/erlinit.md)）                |
+| `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植）                     |
+| `package/lns/`                                  | `symlink(2)` を呼ぶ静的ヘルパーの Buildroot package（BusyBox に `ln` が無いため） |
+| `sd/imx28-pwsh6-peripheral.{dts,dtb}`           | USB NCM 用の peripheral 構成（[用途別の DTB 選択](sd/README.md)）                 |
+| `sd/*.sh`                                       | SD の作成・配備スクリプト                                                         |
+| `sd/deploy_release.sh`                          | 互換性のある Elixir release を `/srv/erlang` へ配置                               |
+| `docs/release-deployment.md`                    | release の要件と System / application の責務分担                                  |
+| `examples/hello_kiosk/`                         | PW-SH6 で動作確認済みの Elixir KIOSK 動作例                                       |
+| `docs/`                                         | アーキテクチャ概要と ADR（設計判断）                                              |
 
 ## ビルド
 
