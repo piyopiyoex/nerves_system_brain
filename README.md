@@ -22,7 +22,7 @@ LCD 854×480）向けのカスタム Nerves システム。
 | パス | 内容 |
 |---|---|
 | `nerves_defconfig` | Buildroot 設定（arm926t / Bootlin armv5 / ext4 / カーネル非ビルド） |
-| `rootfs_overlay/etc/erlinit.config` | コンソール(tty1) + USB-NCM ガジェット自動起動 |
+| `rootfs_overlay/etc/erlinit.config` | PW-SH6 の bring-up / USB NCM 開発用設定（[詳細](docs/erlinit.md)） |
 | `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植） |
 | `package/lns/` | `symlink(2)` を呼ぶ静的ヘルパーの Buildroot package（BusyBox に `ln` が無いため） |
 | `sd/imx28-pwsh6-peripheral.{dts,dtb}` | USB NCM 用の peripheral 構成（[用途別の DTB 選択](sd/README.md)） |
@@ -44,6 +44,15 @@ make -C o           # OTP 29 の armv5 クロスビルドを含むため時間�
 
 USB NCM の構成に必要な `lns` は、`package/lns/` から対象用ツールチェーンで自動的に
 ビルドされ、rootfs の `/usr/bin/lns` へ配置される。事前の手動ビルドは不要。
+
+### erlinit bring-up profile
+
+現在の `erlinit.config` は、PW-SH6 の実機 bring-up と USB NCM を使った開発を優先した
+構成である。詳細な起動ログ、LCD コンソール、Erlang 終了後の調査用 shell などは
+意図的に有効にしている bring-up 用設定であり、将来の運用構成の必須要件ではない。
+
+USB NCM 関連の設定も開発用通信経路の一部であり、製品運用で常設することを意味しない。
+各設定の役割と起動の流れは [`docs/erlinit.md`](docs/erlinit.md) を参照。
 
 ### 動作例（任意）
 
