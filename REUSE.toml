@@ -64,7 +64,6 @@ path = [
   "examples/hello_kiosk/lib/hello_kiosk_brain.ex",
   "examples/hello_kiosk/lib/hello_kiosk_brain/*.ex",
   "examples/hello_kiosk/mix.exs",
-  "examples/hello_kiosk/priv/bin/devmem",
   "examples/hello_kiosk/scripts/*.sh",
   "examples/hello_kiosk/src/*.c",
   "examples/hello_kiosk/test/*.c",
