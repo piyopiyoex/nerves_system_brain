@@ -7,6 +7,7 @@ path = [
   "VERSION",
   "NOTICE",
   "REUSE.toml",
+  "busybox.fragment",
   "examples/hello_kiosk/.formatter.exs",
   "examples/hello_kiosk/.gitignore",
   "examples/hello_kiosk/.tool-versions",
@@ -41,11 +42,7 @@ SPDX-License-Identifier = "CC-BY-4.0"
 # Buildroot external-tree glue. Keep this aligned with Buildroot's GPL-2.0-or-later terms.
 [[annotations]]
 path = [
-  "Config.in",
-  "external.mk",
-  "package/lns/Config.in",
-  "package/lns/lns.mk",
-  "post-build.sh"
+  "Config.in"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = [
@@ -68,7 +65,6 @@ path = [
   "examples/hello_kiosk/src/*.c",
   "examples/hello_kiosk/test/*.c",
   "examples/hello_kiosk/test/*.exs",
-  "package/lns/lns.c",
   "rootfs_overlay/usr/bin/enable_ethernet_gadget",
   "sd/*.sh",
   "sd/lib/*.sh"

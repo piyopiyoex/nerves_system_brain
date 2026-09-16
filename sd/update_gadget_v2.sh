@@ -1,5 +1,5 @@
 #!/bin/bash
-# USB NCM の起動スクリプトと lns を SD カードの p2 へ配置する。
+# USB NCM の起動スクリプトを SD カードの p2 へ配置する。
 set -eu
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -26,12 +26,7 @@ sd_reject_critical_mounts "$DEV"
 sd_require_label "$PART_ROOT" rootfs
 
 GADGET_SOURCE="$REPO_ROOT/rootfs_overlay/usr/bin/enable_ethernet_gadget"
-LNS_SOURCE="$REPO_ROOT/o/target/usr/bin/lns"
-if [ ! -f "$LNS_SOURCE" ]; then
-	LNS_SOURCE="$REPO_ROOT/rootfs_overlay/usr/bin/lns"
-fi
 [ -f "$GADGET_SOURCE" ] || sd_die "起動スクリプトが見つかりません: $GADGET_SOURCE"
-[ -f "$LNS_SOURCE" ] || sd_die "lns が見つかりません。先に rootfs をビルドしてください"
 
 sd_confirm_device "$DEV" "$PART_ROOT の USB NCM 起動ファイルを更新します"
 sd_unmount_partition "$PART_ROOT"
@@ -47,7 +42,9 @@ sd_install_cleanup_trap
 
 sd_mount_partition "$PART_ROOT" "$MNT_ROOT"
 sd_assert_mount_source "$PART_ROOT" "$MNT_ROOT"
-install -m 755 "$LNS_SOURCE" "$MNT_ROOT/usr/bin/lns"
+if [ ! -x "$MNT_ROOT/bin/ln" ] && [ ! -x "$MNT_ROOT/usr/bin/ln" ]; then
+	sd_die "対象 rootfs に ln がありません。BusyBox ln を有効にした rootfs を先に反映してください"
+fi
 install -m 755 "$GADGET_SOURCE" "$MNT_ROOT/usr/bin/enable_ethernet_gadget"
 printf 'brain\n' >"$MNT_ROOT/etc/hostname"
 

@@ -26,7 +26,7 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `nerves_defconfig`                              | Buildroot 設定（arm926t / Bootlin armv5 / ext4 / カーネル非ビルド）               |
 | `rootfs_overlay/etc/erlinit.config`             | PW-SH6 の bring-up / USB NCM 開発用設定（[詳細](docs/erlinit.md)）                |
 | `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植）                     |
-| `package/lns/`                                  | `symlink(2)` を呼ぶ静的ヘルパーの Buildroot package（BusyBox に `ln` が無いため） |
+| `busybox.fragment`                              | USB NCM setup に必要な BusyBox `ln` applet を追加                                 |
 | `sd/imx28-pwsh6-peripheral.{dts,dtb}`           | USB NCM 用の peripheral 構成（[用途別の DTB 選択](sd/README.md)）                 |
 | `sd/*.sh`                                       | SD の作成・配備スクリプト                                                         |
 | `sd/deploy_release.sh`                          | 互換性のある Elixir release を `/srv/erlang` へ配置                               |
@@ -46,8 +46,8 @@ git clone --branch v1.34.3 --depth 1 \
 make -C o           # OTP 29 の armv5 クロスビルドを含むため時間がかかる
 ```
 
-USB NCM の構成に必要な `lns` は、`package/lns/` から対象用ツールチェーンで自動的に
-ビルドされ、rootfs の `/usr/bin/lns` へ配置される。事前の手動ビルドは不要。
+USB NCM の configfs setup に必要な `ln` は `busybox.fragment` で BusyBox に追加する。
+`enable_ethernet_gadget` は標準の `ln -s` を使用し、独自 helper は必要としない。
 
 ### erlinit bring-up profile
 
