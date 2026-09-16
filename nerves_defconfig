@@ -21,21 +21,19 @@ BR2_ROOTFS_DEVICE_TABLE="${BR2_EXTERNAL_NERVES_PATH}/board/nerves-common/device_
 BR2_ENABLE_LOCALE_WHITELIST="locale-archive"
 BR2_GENERATE_LOCALE="en_US.UTF-8"
 BR2_ROOTFS_OVERLAY="${BR2_EXTERNAL_NERVES_PATH}/board/nerves-common/rootfs_overlay ${NERVES_DEFCONFIG_DIR}/rootfs_overlay"
-BR2_ROOTFS_POST_BUILD_SCRIPT="${NERVES_DEFCONFIG_DIR}/post-build.sh ${BR2_EXTERNAL_NERVES_PATH}/board/nerves-common/post-build.sh"
+BR2_ROOTFS_POST_BUILD_SCRIPT="${BR2_EXTERNAL_NERVES_PATH}/board/nerves-common/post-build.sh"
 
 # Kernel: none — Brainux (brain-hackers linux-brain) zImage/DTB on the FAT boot
 # partition is reused as-is. The kernel is monolithic (no /lib/modules needed).
 
 # Busybox
 BR2_PACKAGE_BUSYBOX_CONFIG="${BR2_EXTERNAL_NERVES_PATH}/board/nerves-common/busybox.config"
+BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="${NERVES_DEFCONFIG_DIR}/busybox.fragment"
 
 # Nerves
 BR2_PACKAGE_NERVES_CONFIG=y
 BR2_PACKAGE_NERVES_CONFIG_ACCEPT_RNG_NOTICE=y
 BR2_NERVES_SYSTEM_NAME="nerves_system_brain"
-
-# プロジェクト固有の package
-BR2_PACKAGE_LNS=y
 
 # Rootfs images: ext4 is required (Brainux kernel has no squashfs support);
 # tar is convenient for manual partition population during bring-up.

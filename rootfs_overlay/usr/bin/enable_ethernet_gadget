@@ -1,6 +1,6 @@
 #!/bin/sh
 # USB NCM gadget for SHARP Brain (Nerves port, v2).
-# - Nerves busybox has no `ln`: use the static /usr/bin/lns helper instead.
+# - BusyBox `ln` is enabled by busybox.fragment for configfs symlinks.
 # - Runs early from erlinit --pre-run-exec, so wait for the UDC to finish
 #   probing (it is still deferred at ~3s after boot) and take its real name
 #   from /sys/class/udc instead of hardcoding it.
@@ -26,7 +26,7 @@ mkdir "$g"/functions/ncm.usb0
 echo "8a:15:8b:44:3a:02" > "$g"/functions/ncm.usb0/dev_addr
 echo "8a:15:8b:44:3a:01" > "$g"/functions/ncm.usb0/host_addr
 
-lns "$g"/functions/ncm.usb0 "$g"/configs/c.1/ncm.usb0
+ln -s "$g"/functions/ncm.usb0 "$g"/configs/c.1/ncm.usb0
 
 # Wait for a UDC to appear (up to 30s), then bind to it by its real name
 n=0

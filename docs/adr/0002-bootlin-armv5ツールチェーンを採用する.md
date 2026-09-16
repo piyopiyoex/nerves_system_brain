@@ -29,7 +29,7 @@ Buildroot が提供する Bootlin `armv5-eabi--glibc--stable` ツールチェー
 ## 影響
 
 - ビルドは Bootlin および Buildroot が提供する外部成果物に依存する。
-- `lns` や NIF などのネイティブコードも、同じ ABI のクロスコンパイラで構築する必要がある。
+- NIF や `devmem` などのネイティブコードも、同じ ABI のクロスコンパイラで構築する必要がある。
 - ツールチェーンの版を更新する場合は、生成物の ABI と PW-SH6 上での動作を再確認する。
 - 独自の Nerves toolchain パッケージは、必要性が明確になるまで作成しない。
 
