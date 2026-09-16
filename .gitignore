@@ -22,3 +22,6 @@
 
 # Built helper binary (build from src/lns.c)
 /rootfs_overlay/usr/bin/lns
+
+# Buildroot build logs (make -C o)
+/build*.log
