@@ -30,14 +30,15 @@ USB controller は Device Tree で `dr_mode = "peripheral"` とし、`erlinit` �
 ## 影響
 
 - USB controller を host モードとして同時に利用することはできない。
+- USB host が必要な用途では host 構成を明示的に選択し、その間は USB NCM を利用できない。
 - gadget の初期化は UDC の検出時期と Device Tree の設定に依存する。
 - IP address、MAC address、serial number は将来、複数台運用を考慮して整理する必要がある。
-- USB host 化や別の通信経路への変更は、本 ADR を置き換える判断として記録し、PW-SH6
-  実機で検証する。
+- 標準の開発用通信経路を USB host / 有線 LAN / WiFi などへ変更する場合は、本 ADR を
+  置き換える判断として記録し、PW-SH6 実機で検証する。
 - USB NCM は開発用通信経路であり、製品運用時の通信方式を確定するものではない。
 
 ## 再評価条件
 
-- USB ポートを host として常用する必要が生じた場合。
+- USB ポートを host として標準の開発構成で常用する必要が生じた場合。
 - 有線 LAN / WiFi など別の通信経路を標準の開発経路にする場合。
 - 複数台運用に合わせて IP / MAC / serial の管理方式を変更する場合。
