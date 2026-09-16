@@ -44,12 +44,12 @@ Erlang / Elixir のバージョンは `.tool-versions` で固定しているた�
 mise install   # または: asdf install
 
 ./scripts/setup_ssh.sh       # SSH ホスト鍵 + authorized_keys を生成（git 管理外）
-./scripts/build_release.sh   # ARMv5 NIF をクロスコンパイル + ERTS-less release を構築
+./scripts/build_release.sh   # ARMv5 NIF / devmem をクロスコンパイル + ERTS-less release を構築
 ```
 
-`MIX_ENV=prod mix release` だけでは、ARMv5 用 `kiosk_nif.so` のクロスコンパイルと
-ターゲット OTP アプリの取り込みを行わないため、PW-SH6 へ配備する release の構築には
-`build_release.sh` を使用する。
+`MIX_ENV=prod mix release` だけでは、ARMv5 用 `kiosk_nif.so` / `devmem` の
+クロスコンパイルとターゲット OTP アプリの取り込みを行わないため、PW-SH6 へ配備する
+release の構築には `build_release.sh` を使用する。
 
 既定では [`nerves_system_brain`](../..) の `o/` を参照する。別のシステムリポジトリや
 Buildroot 出力を使う場合は次のように指定できる。
@@ -97,7 +97,7 @@ ssh user@10.42.0.2 ':code.purge(Mod); :code.load_file(Mod); GenServer.stop(Hello
 | `HelloKioskBrain.Display` | 旧・最小 KIOSK 画面（Kiosk に置換、参考として残置） |
 | `HelloKioskBrain.SshDaemon` | OTP `:ssh`（公開鍵認証 + IEx + direct exec + SFTP、crng 非ブロッキング起動） |
 
-補助バイナリ（`priv/bin/`、ソースは `src/`）: `devmem`（/dev/mem mmap R/W）。
+補助バイナリ `devmem`（/dev/mem mmap R/W）は `src/devmem.c` から `build_release.sh` で ARMv5 向けに生成する。
 
 ## ドキュメント
 
