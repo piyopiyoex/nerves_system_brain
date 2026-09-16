@@ -66,6 +66,7 @@ path = [
   "examples/hello_kiosk/test/*.c",
   "examples/hello_kiosk/test/*.exs",
   "rootfs_overlay/usr/bin/enable_ethernet_gadget",
+  "scripts/*.exs",
   "sd/*.sh",
   "sd/lib/*.sh"
 ]

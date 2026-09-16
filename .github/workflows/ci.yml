@@ -16,6 +16,13 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
+      - name: Set up Erlang/Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: '29.0.5'
+          elixir-version: '1.20.2-otp-29'
+          version-type: strict
+
       - name: Install check dependencies
         run: |
           sudo apt-get update
