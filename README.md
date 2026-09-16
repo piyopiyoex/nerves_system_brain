@@ -3,7 +3,12 @@
 SHARP Brain 電子辞書 **PW-SH6**（NXP i.MX283 / ARMv5TEJ soft-float / 128MiB /
 LCD 854×480）向けのカスタム Nerves システム。
 
-アプリ側は [hello_kiosk_brain](https://github.com/kurokouji/hello_kiosk_brain)。
+> **免責**: 本リポジトリは**開発途中の試行錯誤の記録**であり、記載の手順・設定・調査結論は作者の環境
+> (特定の個体・周辺機器・時点)での実測です。**動作を保証するものではありません。** 電子辞書の改造は
+> 自己責任で行ってください(本体 eMMC には触らず microSD 起動のみで作業しています)。
+
+動作デモ(KIOSK アプリの実行イメージと使い方)は [examples/hello_kiosk](examples/hello_kiosk/)。
+アプリ本体(Elixir ソース)は現時点では非公開。
 
 ## 方針
 
