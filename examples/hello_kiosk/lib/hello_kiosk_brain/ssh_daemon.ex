@@ -43,6 +43,7 @@ defmodule HelloKioskBrain.SshDaemon do
 
   @impl true
   def init(_opts) do
+    Process.flag(:trap_exit, true)
     Process.send_after(self(), :try_start_delayed, @boot_delay_ms)
     {:ok, %{daemon: nil}}
   end
@@ -50,15 +51,33 @@ defmodule HelloKioskBrain.SshDaemon do
   @impl true
   def handle_info(:try_start_delayed, state), do: {:noreply, try_start(state)}
   def handle_info(:retry, state), do: {:noreply, try_start(state)}
+
+  def handle_info({:EXIT, pid, reason}, %{daemon: pid} = state) do
+    Logger.warning("SSH daemon exited: #{inspect(reason)}; retrying")
+    Process.send_after(self(), :retry, @retry_ms)
+    {:noreply, %{state | daemon: nil}}
+  end
+
   def handle_info(_, state), do: {:noreply, state}
 
-  defp try_start(%{daemon: pid} = state) when is_pid(pid), do: state
+  @impl true
+  def terminate(_reason, %{daemon: pid}) when is_pid(pid) do
+    stop_daemon(pid)
+    :ok
+  end
+
+  def terminate(_reason, _state), do: :ok
+
+  defp try_start(%{daemon: pid} = state) when is_pid(pid) do
+    if Process.alive?(pid), do: state, else: try_start(%{state | daemon: nil})
+  end
 
   defp try_start(state) do
     preload_modules()
 
     priv = :code.priv_dir(:hello_kiosk_brain)
     system_dir = priv |> Path.join("ssh") |> String.to_charlist()
+    dot_iex = Path.join(priv, "iex.exs")
 
     opts = [
       system_dir: system_dir,
@@ -67,14 +86,15 @@ defmodule HelloKioskBrain.SshDaemon do
       pwdfun: &check_password/2,
       # the shell fun must return the pid that owns the channel lifetime;
       # {IEx, :start, []} returns immediately and the channel closes.
-      shell: fn _user, _peer -> spawn(fn -> IEx.Server.run([]) end) end,
+      shell: fn _user, _peer -> spawn(fn -> IEx.Server.run(dot_iex: dot_iex) end) end,
       exec: {:direct, &exec_elixir/1},
       subsystems: [:ssh_sftpd.subsystem_spec(cwd: ~c"/", root: ~c"/")]
     ]
 
     try do
-      case :ssh.daemon(22, opts) do
+      case start_daemon(opts) do
         {:ok, pid} ->
+          Process.link(pid)
           Logger.info("SSH daemon up on 22")
           %{state | daemon: pid}
 
@@ -89,6 +109,19 @@ defmodule HelloKioskBrain.SshDaemon do
         Process.send_after(self(), :retry, @retry_ms)
         state
     end
+  end
+
+  defp start_daemon(opts) do
+    with {:ok, _apps} <- Application.ensure_all_started(:iex) do
+      :ssh.daemon(22, opts)
+    end
+  end
+
+  defp stop_daemon(pid) do
+    :ssh.stop_daemon(pid)
+  catch
+    kind, reason ->
+      Logger.warning("SSH daemon stop failed: #{inspect({kind, reason})}")
   end
 
   defp check_password(user, password) do
