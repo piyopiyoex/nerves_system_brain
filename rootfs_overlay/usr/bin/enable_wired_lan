@@ -18,6 +18,9 @@ echo "enable_wired_lan start uptime=$(cat /proc/uptime 2>/dev/null)" > "$log"
             name=${d##*/}
             [ "$name" = "lo" ] && continue
             [ -e "$d/device" ] || continue
+            # wired only: eth*/usb*/enx*. Never pick wlan* (the WiFi dongle can enumerate
+            # before the LAN adapter; running udhcpc on it here leaves eth0 unconfigured).
+            case "$name" in eth*|usb*|enx*) ;; *) continue ;; esac
             iface=$name
             break
         done
