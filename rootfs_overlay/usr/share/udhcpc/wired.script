@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC2154  # $interface $ip $subnet $router $dns are set in the environment by udhcpc
 # Minimal udhcpc handler for the wired NIC. The stock default.script fails on
 # this reduced busybox (no route/mktemp/touch applets), so it never installs the
 # default route. Do the essentials with ip: assign IP, install the PRIMARY

@@ -20,8 +20,5 @@
 # Reference script slurped off the running Brainux device
 /reference_enable_ethernet_gadget.sh
 
-# Built helper binary (build from src/lns.c)
-/rootfs_overlay/usr/bin/lns
-
 # Buildroot build logs (make -C o)
 /build*.log

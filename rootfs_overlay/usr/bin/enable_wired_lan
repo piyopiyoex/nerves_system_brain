@@ -27,7 +27,7 @@ echo "enable_wired_lan start uptime=$(cat /proc/uptime 2>/dev/null)" > "$log"
         [ -z "$iface" ] && { sleep 1; n=$((n + 1)); }
     done
 
-    echo after wait ${n}s: ifaces=$(ls /sys/class/net 2>/dev/null) >> "$log"
+    echo "after wait ${n}s: ifaces=$(ls /sys/class/net 2>/dev/null)" >> "$log"
 
     if [ -z "$iface" ]; then
         echo "NO ethernet interface found" >> "$log"
