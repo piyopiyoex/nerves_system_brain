@@ -26,7 +26,13 @@ mkdir "$g"/functions/ncm.usb0
 echo "8a:15:8b:44:3a:02" > "$g"/functions/ncm.usb0/dev_addr
 echo "8a:15:8b:44:3a:01" > "$g"/functions/ncm.usb0/host_addr
 
-ln -s "$g"/functions/ncm.usb0 "$g"/configs/c.1/ncm.usb0
+# symlink the function into the config. Rootfs images built before busybox.fragment
+# (CONFIG_LN) have no `ln`; they ship the static /usr/bin/lns helper instead.
+if command -v ln >/dev/null 2>&1; then
+    ln -s "$g"/functions/ncm.usb0 "$g"/configs/c.1/ncm.usb0 || exit 1
+else
+    /usr/bin/lns "$g"/functions/ncm.usb0 "$g"/configs/c.1/ncm.usb0 || exit 1
+fi
 
 # Wait for a UDC to appear (up to 30s), then bind to it by its real name
 n=0
