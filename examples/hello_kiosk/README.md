@@ -34,6 +34,9 @@ Mix アプリ名と release 名は既存環境との互換性のため `hello_ki
 
 ## セットアップ（クローン後）
 
+初回の System build、microSD 作成、USB-NCM 接続は
+[初回セットアップガイド](../../docs/getting-started.md) を参照。
+
 先にリポジトリルートで `nerves_system_brain` をビルドして `o/` を作成する。
 その後、このディレクトリで実機用 release を構築する。
 

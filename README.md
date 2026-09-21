@@ -12,7 +12,9 @@ LCD 854×480）向けのカスタム Nerves システム。
 動作例として `examples/hello_kiosk/` に `hello_kiosk_brain` を同梱する。
 
 設計の全体像と「標準 Nerves に寄せる部分 / Brain 固有として残す部分」の考え方は
-[`docs/README.md`](docs/README.md) を参照。
+[アーキテクチャ概要](docs/README.md) を参照。
+
+初めて実機で動かす場合は [初回セットアップガイド](docs/getting-started.md) を参照。
 
 ## 方針
 

@@ -1,7 +1,5 @@
 #!/bin/sh
-# Combined network bring-up called from erlinit --pre-run-exec.
-# Both sub-scripts background their (slow) work and return immediately, so this
-# returns immediately too -> Erlang/KIOSK start right away, net comes up async.
+# Network bring-up called from erlinit --pre-run-exec.
 
 # Set the Linux clock from the Brain RTC first (i.MX28 HW_RTC_SECONDS @0x80056030; the Brain
 # firmware keeps it as seconds since 2000-01-01 in local JST). This makes the clock right
@@ -17,6 +15,12 @@ if [ -x /root/devmem ]; then
                      echo "$(cat /proc/uptime) rtc unset/out of range raw=$raw" >> /root/rtc_boot.log
                  fi ;;
     esac
+fi
+
+# USB0 peripheral mode uses USB NCM instead of the host networking below.
+USB0_MODE=/sys/firmware/devicetree/base/ahb@80080000/usb@80080000/dr_mode
+if [ -r "$USB0_MODE" ] && grep -q '^peripheral' "$USB0_MODE"; then
+    exec /usr/bin/enable_ethernet_gadget
 fi
 
 /usr/bin/enable_wired_lan

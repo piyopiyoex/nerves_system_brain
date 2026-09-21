@@ -47,8 +47,14 @@ U-Boot が読み込むファイル名は、ブートパーティション上の 
 host 構成を使う場合は、buildbrain のベースイメージに含まれる `imx28-pwsh6.dtb` を
 そのまま使用する。
 
-USB NCM 用の peripheral 構成を使う場合は、ブートパーティションをマウントしたうえで
-次のように置き換える。`<boot-mount>` はそのマウントポイントに置き換える。
+USB NCM 用の peripheral 構成へ切り替える場合は、次の helper を使用できる。
+
+```sh
+sudo bash sd/use_usb_ncm.sh /dev/sdX
+```
+
+手動で配置する場合は、ブートパーティションをマウントしたうえで次のように置き換える。
+`<boot-mount>` はそのマウントポイントに置き換える。
 
 ```sh
 sudo cp sd/imx28-pwsh6-peripheral.dtb <boot-mount>/imx28-pwsh6.dtb

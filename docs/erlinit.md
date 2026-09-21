@@ -29,7 +29,7 @@ USB NCM も同様に、現在の主要な**開発用通信経路**としてこ�
 | `ERL_CRASH_DUMP`, `ERL_CRASH_DUMP_SECONDS` | 障害解析 | crash dump の出力先を指定し、出力時間を 5 秒に制限する |
 | `-m configfs:...` | USB NCM 開発用 | gadget setup に必要な configfs を Erlang 起動前に mount する |
 | `-r /srv/erlang` | 通常動作 | application release の検索場所を指定する |
-| `--pre-run-exec /usr/bin/enable_ethernet_gadget` | USB NCM 開発用 | Erlang 起動前に USB NCM gadget を構成する |
+| `--pre-run-exec /usr/bin/enable_net` | PW-SH6 固有 | Device Tree の USB0 role に合わせて network setup を起動する |
 | `--run-on-exit /bin/sh` | bring-up | Erlang 終了後に調査用 shell を起動する |
 
 `--run-on-exit` は Erlang が終了したときに指定した command を実行する option であり、
@@ -49,6 +49,8 @@ tty / environment / mount などの初期化
     ↓
 configfs を mount
     ↓
+/usr/bin/enable_net
+    ↓
 /usr/bin/enable_ethernet_gadget
     ↓
 USB NCM gadget を構成し usb0 に 10.42.0.2/24 を設定
@@ -58,9 +60,8 @@ USB NCM gadget を構成し usb0 に 10.42.0.2/24 を設定
 application
 ```
 
-`erlinit` の `--pre-run-exec` は Erlang を起動する前に
-`/usr/bin/enable_ethernet_gadget` を実行する。gadget script は UDC の出現を待ち、configfs で
-NCM function を構成した後に `usb0` を有効化する。
+`erlinit` の `--pre-run-exec` は Erlang を起動する前に `/usr/bin/enable_net` を実行する。
+peripheral 構成では `enable_ethernet_gadget` を起動し、host 構成では既存の host networking を起動する。
 
 Erlang が終了した場合は、現在の `--run-on-exit /bin/sh` により調査用 shell が起動する。
 この shell は bring-up のために意図的に残している。
@@ -69,13 +70,12 @@ Erlang が終了した場合は、現在の `--run-on-exit /bin/sh` により調
 
 USB NCM を使用する場合、この profile は USB0 が `peripheral` mode の Device Tree を前提とする。
 本リポジトリでは `sd/imx28-pwsh6-peripheral.dtb` をその用途で管理している。
+`enable_net` は Device Tree の role に合わせて host / USB NCM の初期化を選択する。
 
 一方、USB Ethernet、USB Audio、USB 接続の WiFi / BLE などで USB0 を host として使用する場合は、
 brain-hackers 由来の host 構成を選択する。USB0 の host mode と USB NCM gadget は同時には使用できない。
-DTB の選択方針は [`../sd/README.md`](../sd/README.md) を参照する。
+DTB の選択方針は [PW-SH6 の Device Tree](../sd/README.md) を参照する。
 
-host 構成を選ぶ場合は、Device Tree だけでなく用途に合った userspace 側の初期化も必要になる。
-その具体的な host mode 対応は Issue #10 の対象外であり、この bring-up profile には追加しない。
 
 ## 将来の運用構成で再評価する項目
 
