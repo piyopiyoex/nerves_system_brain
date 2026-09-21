@@ -33,7 +33,8 @@ path = [
   "examples/hello_kiosk/docs/worklog/*.md",
   "examples/hello_kiosk/docs/worklog/assets/kiosk_*.png",
   "examples/hello_kiosk/docs/worklog/assets/lovyangfx_ja_phase0.png",
-  "examples/hello_kiosk/priv/ssh/README.md"
+  "examples/hello_kiosk/priv/ssh/README.md",
+  "examples/hello_kiosk/priv/dtb/README.md"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 nerves_system_brain contributors"
@@ -103,7 +104,8 @@ SPDX-License-Identifier = "BSD-2-Clause AND CC-BY-4.0"
 [[annotations]]
 path = [
   "sd/*.dts",
-  "sd/*.dtb"
+  "sd/*.dtb",
+  "examples/hello_kiosk/priv/dtb/*.dtb"
 ]
 precedence = "override"
 SPDX-FileCopyrightText = [
