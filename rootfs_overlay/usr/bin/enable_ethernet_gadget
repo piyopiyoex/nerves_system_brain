@@ -26,13 +26,12 @@ mkdir "$g"/functions/ncm.usb0
 echo "8a:15:8b:44:3a:02" > "$g"/functions/ncm.usb0/dev_addr
 echo "8a:15:8b:44:3a:01" > "$g"/functions/ncm.usb0/host_addr
 
-# symlink the function into the config. Rootfs images built before busybox.fragment
-# (CONFIG_LN) have no `ln`; they ship the static /usr/bin/lns helper instead.
-if command -v ln >/dev/null 2>&1; then
-    ln -s "$g"/functions/ncm.usb0 "$g"/configs/c.1/ncm.usb0 || exit 1
-else
-    /usr/bin/lns "$g"/functions/ncm.usb0 "$g"/configs/c.1/ncm.usb0 || exit 1
-fi
+# symlink the function into the config. BusyBox `ln` is enabled by busybox.fragment
+# (CONFIG_LN). `command -v` is unreliable here: erlinit's --pre-run-exec environment
+# does not reliably populate $PATH, so `command -v ln` can report "not found" even
+# though /bin/ln exists (ash's own bare-word exec falls back to a compiled-in PATH
+# that `command -v` does not use). Call `ln` directly instead of probing for it.
+ln -s "$g"/functions/ncm.usb0 "$g"/configs/c.1/ncm.usb0 || exit 1
 
 # Wait for a UDC to appear (up to 30s), then bind to it by its real name
 n=0
