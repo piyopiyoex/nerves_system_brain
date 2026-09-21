@@ -16,7 +16,7 @@ defmodule HelloKioskBrain.Kiosk do
   use GenServer
   require Logger
 
-  alias HelloKioskBrain.{Draw, Input, Native, Pswitch}
+  alias HelloKioskBrain.{Draw, Input, Native, Pswitch, UsbMode}
 
   @tick_ms 1_000
   @w 854
@@ -47,6 +47,15 @@ defmodule HelloKioskBrain.Kiosk do
   # 確認画面のボタン(x, y, w, h)
   @confirm_yes {220, 300, 180, 64}
   @confirm_no {460, 300, 180, 64}
+  # ヘッダ左端の機種名(DTB から自動認識)の右に置く画面タイトルの開始 x / 読めないときの表示
+  @title_x 110
+  @model_fallback "Brain"
+  # ホーム「USB」行のボタン領域(システム情報 8 行目、値の部分)と、USB 役割切替ダイアログの部品
+  @usb_row_btn {196, 384, 300, 36}
+  @usb_opt_host {80, 150, 330, 110}
+  @usb_opt_ncm {444, 150, 330, 110}
+  @usb_go {220, 330, 180, 64}
+  @usb_cancel {460, 330, 180, 64}
 
   # 配色(RGB888)
   @bg 0x081020
@@ -80,7 +89,10 @@ defmodule HelloKioskBrain.Kiosk do
       ticks: 0,
       last_touch: nil,
       last_key: nil,
-      devmem: devmem
+      devmem: devmem,
+      # USB 役割ダイアログ: 選択中(:host | :peripheral)と結果メッセージ
+      usb_sel: :host,
+      usb_msg: nil
     }
 
     {:ok, st, {:continue, :first_render}}
@@ -127,6 +139,20 @@ defmodule HelloKioskBrain.Kiosk do
     end
   end
 
+  # USB 役割ダイアログ: HOST / NCM の選択 → 「リブート実行」で DTB 差し替え+再起動、「キャンセル」でホームへ
+  defp on_touch(%{screen: :usb_dialog} = st, x, y) do
+    cond do
+      in_rect?(x, y, @usb_opt_host) -> repaint(%{st | usb_sel: :host})
+      in_rect?(x, y, @usb_opt_ncm) -> repaint(%{st | usb_sel: :peripheral})
+      in_rect?(x, y, @usb_cancel) -> go(st, :home)
+      in_rect?(x, y, @usb_go) -> usb_switch(st)
+      true -> {:noreply, st}
+    end
+  end
+
+  # 切替結果画面(エラー時)はタップでホームへ
+  defp on_touch(%{screen: :usb_result} = st, _x, _y), do: go(st, :home)
+
   defp on_touch(st, x, y) do
     cond do
       y >= @h - @tab_h ->
@@ -134,6 +160,13 @@ defmodule HelloKioskBrain.Kiosk do
           nil -> {:noreply, st}
           idx -> bar_action(st, Enum.at(@bar, idx))
         end
+
+      # ホームの「USB」行(ボタン)→ 役割切替ダイアログ
+      st.screen == :home and in_rect?(x, y, @usb_row_btn) ->
+        opt(HelloKioskBrain.Audio, :touch)
+        cur = UsbMode.current()
+        sel = if cur in [:host, :peripheral], do: cur, else: :host
+        repaint(%{st | screen: :usb_dialog, usb_sel: sel, usb_msg: nil})
 
       true ->
         st = %{st | last_touch: {x, y}}
@@ -145,6 +178,9 @@ defmodule HelloKioskBrain.Kiosk do
   defp on_key(%{screen: :demo} = st, _code), do: go(st, :home)
   defp on_key(%{screen: :powering_off} = st, _code), do: go(st, :home)
   defp on_key(%{screen: :needs_unplug} = st, _code), do: go(st, :home)
+  # USB ダイアログ/結果画面ではキー=キャンセル(誤操作で再起動しない)
+  defp on_key(%{screen: :usb_dialog} = st, _code), do: go(st, :home)
+  defp on_key(%{screen: :usb_result} = st, _code), do: go(st, :home)
 
   defp on_key(st, code) do
     st = %{st | last_key: code}
@@ -309,6 +345,12 @@ defmodule HelloKioskBrain.Kiosk do
       :needs_unplug ->
         Native.render([Draw.clear(@bg), needs_unplug()])
 
+      :usb_dialog ->
+        Native.render([Draw.clear(@bg), usb_dialog(st)])
+
+      :usb_result ->
+        Native.render([Draw.clear(@bg), usb_result(st)])
+
       screen ->
         body =
           case screen do
@@ -341,14 +383,57 @@ defmodule HelloKioskBrain.Kiosk do
   defp header(title) do
     {bat, bcol} = battery_label()
     {clock, ccol} = clock_label()
+    m = ip_map()
+    wired = m["eth0"] || m["usb0"]
+    wifi = m["wlan0"]
 
     [
       Draw.rect(0, 0, @w, 40, @panel),
-      Draw.text(12, 20, :ml, :jp24, @accent, title),
-      Draw.text(div(@w, 2), 20, :mc, :jp16, ccol, clock),
-      Draw.text(@w - 12, 20, :mr, :jp16, @fg, ip_string()),
-      Draw.text(@w - 160, 20, :mr, :jp16, bcol, bat)
+      # 左端: 機種名(DTB から自動認識)→ 画面タイトル
+      Draw.text(12, 20, :ml, :jp24, @fg, model_name()),
+      Draw.text(@title_x, 20, :ml, :jp24, @accent, title),
+      # 上段: 時計(中央)・電池(右)
+      Draw.text(div(@w, 2), 12, :mc, :jp16, ccol, clock),
+      Draw.text(@w - 12, 12, :mr, :jp16, bcol, bat),
+      # 下段: 有線 LAN(eth0、NCM 時は usb0)/ WiFi の取得 IP(取得済=緑・未取得=グレー)
+      Draw.text(@w - 200, 28, :mr, :jp16, net_col(wired), "有線 " <> (wired || "なし")),
+      Draw.text(@w - 12, 28, :mr, :jp16, net_col(wifi), "WiFi " <> (wifi || "なし"))
     ]
+  end
+
+  defp net_col(nil), do: @dim
+  defp net_col(_), do: @ok
+
+  # --- 機種の自動認識 ---------------------------------------------------------
+  # Brain ファームは自機種名の実行ファイル(例 PW-SH6 → edsh6exe.bin = U-Boot)しか起動せず、その U-Boot が
+  # fdt_file=imx28-pwsh6.dtb を内蔵しているため、Linux が受け取る DTB の model 文字列はファーム自身の機種判定の
+  # 結果になる。/proc/device-tree/model で確定できる。結果は persistent_term に保持(ヘッダは毎秒描き直す)。
+
+  @doc "DTB の model 文字列(例 \"SHARP Brain PW-SH6\")。読めなければ nil。"
+  def dt_model do
+    case :persistent_term.get({__MODULE__, :dt_model}, :unset) do
+      :unset ->
+        m =
+          case File.read("/proc/device-tree/model") do
+            {:ok, s} -> s |> String.trim_trailing(<<0>>) |> String.trim()
+            _ -> nil
+          end
+
+        m = if m in [nil, ""], do: nil, else: m
+        :persistent_term.put({__MODULE__, :dt_model}, m)
+        m
+
+      m ->
+        m
+    end
+  end
+
+  @doc "ヘッダ用の短い機種名(例 \"PW-SH6\")。DTB の model から末尾の語を取る。"
+  def model_name do
+    case dt_model() do
+      nil -> @model_fallback
+      m -> m |> String.split() |> List.last()
+    end
   end
 
   # JST(UTC+9)の日付・時刻。時計が未設定(1970 年起点など)ならグレー表示。
@@ -375,13 +460,15 @@ defmodule HelloKioskBrain.Kiosk do
 
     # 左: システム情報 / 右: サブシステム状態。ラベルと値を 2 列で整列。
     sysinfo = [
-      {"モデル", "SHARP Brain PW-SH6", @fg},
+      {"モデル", dt_model() || "SHARP Brain (不明)", @fg},
       {"SoC", "i.MX283 (ARMv5)", @fg},
       {"カーネル", kernel_str(), @fg},
       {"ランタイム", "OTP #{:erlang.system_info(:otp_release)} / Elixir #{System.version()}", @fg},
       {"メモリ", mem, @fg},
       {"稼働", up, @fg},
-      {"負荷", load, @fg}
+      {"負荷", load, @fg},
+      # USB0 の役割(DTB で決まる): HOST=ハブ経由で LAN/WiFi/BT/オーディオ、NCM=母艦と USB ガジェット直結
+      usb_role_row()
     ]
 
     {psrc, pval, pcol} = power_status()
@@ -391,8 +478,11 @@ defmodule HelloKioskBrain.Kiosk do
       {"タッチ", "OK", @ok},
       {"キーボード", "OK", @ok},
       {"ネットワーク", "OK", @ok},
-      {"オーディオ", "調査中", @warn},
-      {"ブザー", "調査中", @warn},
+      # オーディオ / BLE は本体アプリ(hello_kiosk_brain)のモジュールがあれば実状態、無ければ「未実装」
+      audio_status(),
+      # ブザー = PWM4→pwm-beeper まで Linux 側は動作するが基板配線未達で無音(worklog 20260904_タッチ音_PWM調査結論)
+      {"ブザー", "非対応", @dim},
+      ble_status(),
       {psrc, pval, pcol}
     ]
 
@@ -411,6 +501,8 @@ defmodule HelloKioskBrain.Kiosk do
           Draw.text(210, y, :ml, :jp20, col, value)
         ]
       end),
+      # 「USB」行はボタン(タップで役割切替ダイアログ)。値の周りに枠と「切替 >」
+      usb_row_button(),
       status
       |> Enum.with_index()
       |> Enum.map(fn {{label, value, col}, i} ->
@@ -423,6 +515,156 @@ defmodule HelloKioskBrain.Kiosk do
       end)
     ]
   end
+
+  # --- 状態行(オプションのモジュールがあれば実状態) -----------------------------
+
+  # 本体アプリにある Audio / BtSpeaker / SwitchBotScanner は本例に含めていない。あれば呼び、無ければ :absent。
+  defp opt(mod, fun, args \\ []) do
+    if Code.ensure_loaded?(mod) and function_exported?(mod, fun, length(args)),
+      do: apply(mod, fun, args),
+      else: :absent
+  end
+
+  defp audio_status do
+    cond do
+      opt(HelloKioskBrain.BtSpeaker, :ready?) == true -> {"オーディオ", "BT OK", @ok}
+      opt(HelloKioskBrain.Audio, :output_label) == :absent -> {"オーディオ", "未実装(本例)", @dim}
+      opt(HelloKioskBrain.Audio, :output_label) -> {"オーディオ", "USB OK", @ok}
+      true -> {"オーディオ", "USB 未接続", @dim}
+    end
+  end
+
+  defp ble_status do
+    cond do
+      opt(HelloKioskBrain.BtSpeaker, :configured?) == true ->
+        case opt(HelloKioskBrain.BtSpeaker, :status) do
+          :connected -> {"BT", "スピーカー接続", @ok}
+          :unpaired -> {"BT", "ペアリング中", @warn}
+          :disconnected -> {"BT", "スピーカー未接続", @warn}
+          _ -> {"BT", "スタック起動待ち", @dim}
+        end
+
+      opt(HelloKioskBrain.SwitchBotScanner, :scanning?) == :absent ->
+        {"BLE", "未実装(本例)", @dim}
+
+      opt(HelloKioskBrain.SwitchBotScanner, :scanning?) == true ->
+        {"BLE", "受信中", @ok}
+
+      File.exists?("/sys/class/bluetooth/hci0") ->
+        {"BLE", "初期化中", @warn}
+
+      true ->
+        {"BLE", "ドングルなし", @dim}
+    end
+  end
+
+  # --- USB 役割(HOST / NCM)の表示と切替 -------------------------------------------
+
+  # USB0 の動作モードを sysfs から判定して 1 行にする。
+  #   HOST: /sys/bus/usb/devices/usb1(ルートハブ)がある → ハブ配下の機器数(ハブ自身を除く)を表示
+  #   NCM : /sys/class/udc に UDC がある(peripheral DTB)→ usb0 の IP(ガジェット未リンクなら「リンク待ち」)
+  defp usb_role_row do
+    case UsbMode.current() do
+      :host ->
+        n = usb_device_count()
+        {"USB", "HOST / 機器 #{n}台", if(n > 0, do: @ok, else: @warn)}
+
+      :peripheral ->
+        case ip_map()["usb0"] do
+          nil -> {"USB", "NCM / リンク待ち", @warn}
+          ip -> {"USB", "NCM / usb0 #{ip}", @ok}
+        end
+
+      :otg ->
+        {"USB", "OTG / HOST #{usb_device_count()}台 + NCM", @ok}
+
+      _ ->
+        {"USB", "不明", @dim}
+    end
+  end
+
+  # ルートハブ(usb1)配下の機器数。外付けハブ(bDeviceClass 09)は数えない。
+  defp usb_device_count do
+    Path.wildcard("/sys/bus/usb/devices/1-*/bDeviceClass")
+    |> Enum.reject(fn p -> String.contains?(p, ":") end)
+    |> Enum.count(fn p -> String.trim(File.read!(p)) != "09" end)
+  rescue
+    _ -> 0
+  end
+
+  defp usb_row_button do
+    {x, y, w, h} = @usb_row_btn
+
+    [
+      Draw.rframe(x, y, w, h, 8, @tab_off),
+      Draw.text(x + w - 10, y + div(h, 2), :mr, :jp16, @accent, "切替 >")
+    ]
+  end
+
+  defp repaint(st) do
+    paint(st)
+    {:noreply, st}
+  end
+
+  defp usb_switch(%{usb_sel: sel} = st) do
+    opt(HelloKioskBrain.Audio, :touch)
+
+    case UsbMode.switch_and_reboot(sel) do
+      :ok -> repaint(%{st | screen: :usb_result, usb_msg: {:ok, sel}})
+      {:error, reason} -> repaint(%{st | screen: :usb_result, usb_msg: {:error, reason}})
+    end
+  end
+
+  defp usb_mode_name(:host), do: "HOST"
+  defp usb_mode_name(:peripheral), do: "NCM"
+  defp usb_mode_name(:otg), do: "OTG"
+  defp usb_mode_name(_), do: "不明"
+
+  defp usb_dialog(st) do
+    cur = UsbMode.current()
+    supported = UsbMode.supported?()
+
+    [
+      Draw.text(div(@w, 2), 60, :mc, :jp32, @fg, "USB の役割を切り替え"),
+      Draw.text(div(@w, 2), 104, :mc, :jp20, @dim,
+        "現在: #{usb_mode_name(cur)}  (#{if supported, do: "選んで「リブート実行」", else: "この機種は非対応(#{UsbMode.model_code() || "?"})"})"),
+      usb_option(@usb_opt_host, "HOST", "ハブ経由: LAN / WiFi / BLE / 音声", st.usb_sel == :host, cur == :host),
+      usb_option(@usb_opt_ncm, "NCM", "母艦と直結: usb0 10.42.0.2", st.usb_sel == :peripheral, cur == :peripheral),
+      Draw.text(div(@w, 2), 290, :mc, :jp16, @dim, "boot 領域の imx28-pwsh6.dtb を差し替えて再起動します(両方同時には使えません)"),
+      usb_button(@usb_go, "リブート実行", if(supported, do: @warn, else: @tab_off), if(supported, do: @bg, else: @dim)),
+      usb_button(@usb_cancel, "キャンセル", @tab_off, @fg)
+    ]
+  end
+
+  defp usb_option({x, y, w, h}, title, sub, selected, current) do
+    [
+      Draw.rrect(x, y, w, h, 12, if(selected, do: @panel, else: @bg)),
+      Draw.rframe(x, y, w, h, 12, if(selected, do: @accent, else: @tab_off)),
+      Draw.text(x + div(w, 2), y + 34, :mc, :jp32, if(selected, do: @accent, else: @fg), title <> if(current, do: " (現在)", else: "")),
+      Draw.text(x + div(w, 2), y + 80, :mc, :jp16, @dim, sub)
+    ]
+  end
+
+  defp usb_button({x, y, w, h}, label, bg, fg) do
+    [Draw.rrect(x, y, w, h, 10, bg), Draw.text(x + div(w, 2), y + div(h, 2), :mc, :jp24, fg, label)]
+  end
+
+  defp usb_result(%{usb_msg: {:ok, sel}}) do
+    [
+      Draw.text(div(@w, 2), 200, :mc, :jp32, @ok, "#{usb_mode_name(sel)} に切り替えました"),
+      Draw.text(div(@w, 2), 250, :mc, :jp20, @fg, "再起動します…")
+    ]
+  end
+
+  defp usb_result(%{usb_msg: {:error, reason}}) do
+    [
+      Draw.text(div(@w, 2), 190, :mc, :jp32, @warn, "切り替えに失敗しました"),
+      Draw.text(div(@w, 2), 240, :mc, :jp16, @fg, String.slice(inspect(reason), 0, 70)),
+      Draw.text(div(@w, 2), 300, :mc, :jp20, @dim, "タップでホームへ戻る(DTB は変更されていません)")
+    ]
+  end
+
+  defp usb_result(_), do: []
 
   # 稼働ごとに変化する情報(/proc から取得)。render 毎(1秒)に読むが軽量。
   defp sys_dynamic do
@@ -603,23 +845,18 @@ defmodule HelloKioskBrain.Kiosk do
 
   # eth0(USB 有線 LAN)/ usb0(USB-NCM)どちらでも拾えるよう、loopback 以外で
   # IPv4 を持つ最初のインタフェースのアドレスを返す。
-  defp ip_string do
-    with {:ok, ifs} <- :inet.getifaddrs(),
-         {_name, addr} <-
-           ifs
-           |> Enum.reject(fn {name, _} -> name == ~c"lo" end)
-           |> Enum.find_value(fn {name, props} ->
-             props
-             |> Keyword.get_values(:addr)
-             |> Enum.find(&match?({a, _, _, _} when a != 127, &1))
-             |> case do
-               nil -> nil
-               a -> {name, a}
-             end
-           end) do
-      addr |> :inet.ntoa() |> List.to_string()
-    else
-      _ -> "IP なし"
+  # インタフェース名 → IPv4 文字列(lo 以外、最初のアドレス)
+  defp ip_map do
+    case :inet.getifaddrs() do
+      {:ok, ifs} ->
+        for {name, props} <- ifs,
+            name != ~c"lo",
+            {a, b, c, d} <- Keyword.get_values(props, :addr) |> Enum.filter(&match?({_, _, _, _}, &1)) |> Enum.take(1),
+            into: %{},
+            do: {List.to_string(name), "#{a}.#{b}.#{c}.#{d}"}
+
+      _ ->
+        %{}
     end
   end
 end

@@ -17,7 +17,8 @@ Mix アプリ名と release 名は既存環境との互換性のため `hello_ki
 
 下部タブ（タッチ）またはキー 1/2/3/4 で 4 画面を切り替える。
 描画は LovyanGFX NIF（`priv/kiosk_nif.so`、efont/IPA 日本語ゴシック）。
-ヘッダ共通: タイトル / 日時（JST、毎秒更新）/ 電池（LRADC 実測、充電中は+緑）/ IP。
+ヘッダ共通: 機種名（DTB の model から自動認識、例 `PW-SH6`）/ タイトル / 日時（JST、毎秒更新）/ 電池（LRADC 実測、充電中は+緑）/
+取得 IP（有線 eth0 または NCM の usb0、WiFi wlan0 を 2 段で併記。取得済=緑）。
 
 | ホーム | タッチ |
 |---|---|
@@ -27,7 +28,18 @@ Mix アプリ名と release 名は既存環境との互換性のため `hello_ki
 |---|---|
 | ![キー](docs/worklog/assets/kiosk_keys_ja.png) | ![デモ](docs/worklog/assets/kiosk_demo_ja.png) |
 
-- **ホーム**: 稼働秒数とサブシステム状態の一覧。「メモリ」は **`使用量 / 総量 MB`**（左＝使用量 `MemTotal-MemAvailable`、右＝総 RAM `MemTotal`。128MiB 機で約 112MB 総量。例 `38 / 112 MB` は使用 38MB・空き約 74MB）
+- **ホーム**: 稼働秒数とサブシステム状態の一覧。「メモリ」は **`使用量 / 総量 MB`**（左＝使用量 `MemTotal-MemAvailable`、右＝総 RAM `MemTotal`。128MiB 機で約 112MB 総量。例 `38 / 112 MB` は使用 38MB・空き約 74MB）。
+  「モデル」は `/proc/device-tree/model`。状態欄のオーディオ / BLE は、本体アプリの `Audio` / `BtSpeaker` / `SwitchBotScanner`
+  モジュールがある場合だけ実状態を出し、本例（未同梱）では「未実装(本例)」と表示する
+- **ホーム「USB」行**: USB0 の役割（`HOST / 機器 N台` または `NCM / usb0 IP`）を表示するボタン。タップで切替ダイアログ
+  （HOST / NCM を選んで「リブート実行」）。boot 領域の `imx28-pwsh6.dtb` を `priv/dtb/` の host / peripheral 変種で
+  差し替えて再起動する（`HelloKioskBrain.UsbMode`、[priv/dtb/README.md](priv/dtb/README.md)）。NCM は母艦と USB 直結
+  （usb0 10.42.0.2）、HOST はセルフパワーハブ経由の LAN / WiFi / BLE / 音声。システム側の `enable_net` が sysfs で役割を
+  判定し、NCM なら `enable_ethernet_gadget` を起動する（PR #41）
+
+  | 切替ダイアログ | NCM で起動したホーム |
+  |---|---|
+  | ![USB 役割切替](docs/worklog/assets/kiosk_usb_dialog_ja.png) | ![NCM](docs/worklog/assets/kiosk_home_ncm_ja.png) |
 - **タッチ**: タップ位置に点を描画、座標表示（タッチは実機校正 + Y 反転）
 - **キー**: 押されたキーのコード表示
 - **デモ**: LovyanGFX MovingIcons（スプライト 50 個 11fps）。タッチ/キーでホームへ
