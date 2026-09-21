@@ -116,7 +116,11 @@ defmodule HelloKioskBrain.Battery do
 
         if length(lines) > @log_max_lines do
           kept = lines |> Enum.drop(1) |> Enum.take(-@log_max_lines)
-          File.write(@log_path, "os_time_s,uptime_s,mv,percent,on_5v\n" <> Enum.join(kept, "\n") <> "\n")
+
+          File.write(
+            @log_path,
+            "os_time_s,uptime_s,mv,percent,on_5v\n" <> Enum.join(kept, "\n") <> "\n"
+          )
         end
 
       _ ->

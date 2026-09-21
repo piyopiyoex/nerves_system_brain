@@ -7,7 +7,7 @@ defmodule HelloKioskBrain.UsbMode do
   (`priv/dtb/README.md`)。起動後の役割は sysfs から判定する:
 
     * `:host`       … `/sys/bus/usb/devices/usb1`(EHCI ルートハブ)あり、UDC なし
-    * `:peripheral` … `/sys/class/udc/*`(ci_hdrc UDC)あり、ルートハブなし → `enable_net` が NCM ガジェットを構成
+    * `:peripheral` … `/sys/class/udc/*`(ci_hdrc UDC)あり、ルートハブなし → System が NCM gadget を作り VintageNetDirect が usb0 を管理
     * `:otg` / `:unknown`
 
   書き換えは boot FAT を `/tmp/hkb_boot` に mount → 一時名にコピー → rename → umount(FAT 上の rename で差し替え、
@@ -139,7 +139,9 @@ defmodule HelloKioskBrain.UsbMode do
         nil
 
       code ->
-        p = Path.join([to_string(:code.priv_dir(:hello_kiosk_brain)), "dtb", "#{code}-#{mode}.dtb"])
+        p =
+          Path.join([to_string(:code.priv_dir(:hello_kiosk_brain)), "dtb", "#{code}-#{mode}.dtb"])
+
         if File.exists?(p), do: p
     end
   end
@@ -148,7 +150,9 @@ defmodule HelloKioskBrain.UsbMode do
   defp with_boot(fun) do
     File.mkdir_p!(@mnt)
 
-    case System.cmd("/bin/mount", ["-t", "vfat", "-o", "rw,noatime", @boot_dev, @mnt], stderr_to_stdout: true) do
+    case System.cmd("/bin/mount", ["-t", "vfat", "-o", "rw,noatime", @boot_dev, @mnt],
+           stderr_to_stdout: true
+         ) do
       {_, 0} ->
         try do
           {:ok, fun.(@mnt)}

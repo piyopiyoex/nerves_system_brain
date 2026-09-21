@@ -5,8 +5,8 @@ Mix アプリ名と release 名は既存環境との互換性のため `hello_ki
 
 - SoC: NXP i.MX283（ARM926EJ-S / ARMv5TEJ soft-float / RAM 128MiB）
 - LCD: 5.5インチ 854×480（RGB565 LE, /dev/fb0 直描画）
-- ネットワーク: USB-NCM ガジェット（母艦 10.42.0.1 ⇔ Brain 10.42.0.2）
-- ランタイム: OTP 29 + Elixir 1.20（ERTS 非同梱リリース、バイトコードは母艦でビルド）
+- ネットワーク: NervesPack / VintageNet（USB-NCM direct、USB Ethernet、WiFi）
+- ランタイム: OTP 29 + Elixir 1.20（Nerves 標準フローでは ERTS 同梱 release、旧配備フローでは ERTS 非同梱 release）
 - システム: [nerves_system_brain](../..)（nerves_system_br ベース、
   カーネル/U-Boot は brain-hackers 資産を流用）
 
@@ -34,8 +34,8 @@ Mix アプリ名と release 名は既存環境との互換性のため `hello_ki
 - **ホーム「USB」行**: USB0 の役割（`HOST / 機器 N台` または `NCM / usb0 IP`）を表示するボタン。タップで切替ダイアログ
   （HOST / NCM を選んで「リブート実行」）。boot 領域の `imx28-pwsh6.dtb` を `priv/dtb/` の host / peripheral 変種で
   差し替えて再起動する（`HelloKioskBrain.UsbMode`、[priv/dtb/README.md](priv/dtb/README.md)）。NCM は母艦と USB 直結
-  （usb0 10.42.0.2）、HOST はセルフパワーハブ経由の LAN / WiFi / BLE / 音声。システム側の `enable_net` が sysfs で役割を
-  判定し、NCM なら `enable_ethernet_gadget` を起動する（PR #41）
+  （usb0 / VintageNetDirect）、HOST はセルフパワーハブ経由の LAN / WiFi / BLE / 音声。System は peripheral 時に
+  `enable_ethernet_gadget` で usb0 を作るだけで、address / DHCP は VintageNet が管理する
 
   | 切替ダイアログ | NCM で起動したホーム |
   |---|---|
@@ -46,8 +46,11 @@ Mix アプリ名と release 名は既存環境との互換性のため `hello_ki
 
 ## セットアップ（クローン後）
 
+初回の System build、microSD 作成、USB-NCM 接続は
+[初回セットアップガイド](../../docs/getting-started.md) を参照。
+
 先にリポジトリルートで `nerves_system_brain` をビルドして `o/` を作成する。
-その後、このディレクトリで実機用 release を構築する。
+その後、このディレクトリで Nerves 標準寄りの firmware を構築する。
 
 Erlang / Elixir のバージョンは `.tool-versions` で固定しているため、mise と asdf の
 どちらでも利用できる。使用するツールマネージャーで事前にインストールする。
@@ -55,13 +58,42 @@ Erlang / Elixir のバージョンは `.tool-versions` で固定しているた�
 ```sh
 mise install   # または: asdf install
 
-./scripts/setup_ssh.sh       # SSH ホスト鍵 + authorized_keys を生成（git 管理外）
-./scripts/build_release.sh   # ARMv5 NIF / devmem をクロスコンパイル + ERTS-less release を構築
+export MIX_TARGET=brain
+
+mise exec -- mix deps.get
+mise exec -- mix firmware
 ```
 
-`MIX_ENV=prod mix release` だけでは、ARMv5 用 `kiosk_nif.so` / `devmem` の
-クロスコンパイルとターゲット OTP アプリの取り込みを行わないため、PW-SH6 へ配備する
-release の構築には `build_release.sh` を使用する。
+`NervesSSH` は shoehorn から KIOSK application より先に起動する。firmware build 時に
+`~/.ssh/id_{rsa,ecdsa,ed25519}.pub` が見つかれば authorized key として取り込む。
+application の rootfs overlay は `/etc/iex.exs` を配置し、`NervesMOTD.print/0` と `use Toolshed` により
+通常の Nerves に近い IEx 環境を提供する。
+
+PW-SH6 では OTP `:ssh` の `user_passwords` が PBKDF2 で非常に重かった実測があるため、
+移行中は `NervesSSH` の `daemon_option_overrides` で軽量な `pwdfun` を残している。
+公開鍵が無い場合も `user` / `brain` でログインできる。
+
+networking は `NervesPack` / `VintageNet` に任せる。USB peripheral では `VintageNetDirect` が `usb0` と
+peer DHCP を管理し、USB host では `VintageNetEthernet` が `eth0` を DHCP で設定する。WiFi は
+`VintageNetWiFi` を使用し、credential は rootfs の `wpa_supplicant.conf` ではなく VintageNet configuration として設定する。
+接続確認時は IEx から `VintageNet.info()`、WiFi の簡易設定は
+`VintageNetWiFi.quick_configure("SSID", "passphrase")` を利用できる。
+
+生成される `.fw` は、現在の FAT p1 + ext4 p2 レイアウトに合わせた firmware である。
+`complete` task は pinned buildbrain release の boot assets と、ERTS 同梱の Nerves release を
+blank SD にまとめて配置できる。
+
+この example app は同じ repository の `nerves_system_brain` を local path dependency として参照する。
+System / toolchain package の公開後は version dependency へ置き換え、通常の Nerves application と同じ
+`MIX_TARGET=brain` / `mix firmware` の使い方を維持する。
+
+旧来の ERTS 非同梱 release 配備パスも当面維持する。標準 Nerves flow の切り分けや rootfs の
+recovery に使えるが、今回削除した独自 `SshDaemon` と同等の SSH 機能までは保証しない。
+必要な場合は、次の script で従来形式の release を構築できる。
+
+```sh
+./scripts/build_release.sh
+```
 
 既定では [`nerves_system_brain`](../..) の `o/` を参照する。別のシステムリポジトリや
 Buildroot 出力を使う場合は次のように指定できる。
@@ -73,17 +105,18 @@ NERVES_BUILD_DIR=/path/to/build-output ./scripts/build_release.sh
 
 SD の作成・初回配備はリポジトリルートの `sd/` 以下を使用する。
 
-> **SSH / crng**: 初期実装では起動直後の乱数初期化と SSH crypto 処理が UI を
-> 長時間ブロックする問題があった。現在は SSH の遅延起動・モジュール分散ロード・
-> 軽量なパスワード検証で回避している。調査経緯は
-> [docs/worklog/20260903_SSH起動不能_セカンドオピニオン質問書.md](docs/worklog/20260903_SSH起動不能_セカンドオピニオン質問書.md) 参照。
+> **SSH / crng**: 初期実装では独自 `SshDaemon` の crypto 初期化が UI を長時間
+> ブロックした。標準化 branch では `NervesSSH` へ移行し、既知の PBKDF2 問題だけを
+> `HelloKioskBrain.SshAuth` の軽量 `pwdfun` として残している。NervesSSH の host-key 生成を含む
+> 起動負荷は次回実機確認する。過去の調査経緯は
+> [SSH 起動不能の調査記録](docs/worklog/20260903_SSH起動不能_セカンドオピニオン質問書.md) を参照。
 
 ## 開発サイクル（SD 往復不要）
 
 ```sh
 ./scripts/build_release.sh     # リリース構築（staging から armv5 OTP アプリを合流）
 # 変更 beam を sftp で /srv/erlang/lib/hello_kiosk_brain-*/ebin へ put
-ssh user@10.42.0.2 ':code.purge(Mod); :code.load_file(Mod); GenServer.stop(HelloKioskBrain.Display)'
+ssh user@nerves.local ':code.purge(Mod); :code.load_file(Mod); GenServer.stop(HelloKioskBrain.Display)'
 ./scripts/screenshot.sh        # 実機 LCD をリモートで PNG 取得
 ./scripts/settime.sh           # 母艦の時刻を Brain に設定(RTC 非搭載のため毎ブート後に)
 ```
@@ -107,7 +140,7 @@ ssh user@10.42.0.2 ':code.purge(Mod); :code.load_file(Mod); GenServer.stop(Hello
 | `HelloKioskBrain.Input` | evdev 読取り（タッチ event1 / キー event0）。タッチは実機校正 + Y 反転済み |
 | `HelloKioskBrain.Battery` | i.MX28 HW_POWER から電池電圧/充電状態（devmem 経由） |
 | `HelloKioskBrain.Display` | 旧・最小 KIOSK 画面（Kiosk に置換、参考として残置） |
-| `HelloKioskBrain.SshDaemon` | OTP `:ssh`（公開鍵認証 + IEx + direct exec + SFTP、crng 非ブロッキング起動） |
+| `HelloKioskBrain.SshAuth` | NervesSSH 用の PW-SH6 固有 lightweight password callback（公開鍵認証 / IEx / exec / SFTP 自体は NervesSSH が担当） |
 
 補助バイナリ `devmem`（/dev/mem mmap R/W）は `src/devmem.c` から `build_release.sh` で ARMv5 向けに生成する。
 

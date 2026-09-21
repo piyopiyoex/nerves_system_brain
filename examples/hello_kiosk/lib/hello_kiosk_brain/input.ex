@@ -88,7 +88,7 @@ defmodule HelloKioskBrain.Input do
     # release: emit the last coordinate, calibrated to screen pixels
     px = map_axis(state.x, @cal_x_min, @cal_x_max, @scr_w - 1)
     # Y is inverted vs the screen (touching the top switched the bottom tabs).
-    py = (@scr_h - 1) - map_axis(state.y, @cal_y_min, @cal_y_max, @scr_h - 1)
+    py = @scr_h - 1 - map_axis(state.y, @cal_y_min, @cal_y_max, @scr_h - 1)
     notify(state, {:touch, px, py})
     %{state | down: false}
   end
@@ -115,7 +115,9 @@ defmodule HelloKioskBrain.Input do
 
   defp read_loop(fd, parent, tag) do
     case :file.read(fd, 16) do
-      {:ok, <<_sec::little-32, _usec::little-32, type::little-16, code::little-16, value::little-signed-32>>} ->
+      {:ok,
+       <<_sec::little-32, _usec::little-32, type::little-16, code::little-16,
+         value::little-signed-32>>} ->
         send(parent, {:ev, tag, type, code, value})
         read_loop(fd, parent, tag)
 

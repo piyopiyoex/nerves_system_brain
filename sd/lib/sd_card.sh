@@ -102,7 +102,7 @@ sd_require_label()
 	local actual_label
 
 	actual_label=$(lsblk -dnro LABEL -- "$partition")
-	[ "$actual_label" = "$expected_label" ] ||
+	[ "${actual_label,,}" = "${expected_label,,}" ] ||
 		sd_die "$partition のラベルが '$expected_label' ではありません（現在: '${actual_label:-なし}'）"
 }
 

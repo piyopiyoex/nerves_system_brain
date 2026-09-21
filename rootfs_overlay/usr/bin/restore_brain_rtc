@@ -1,0 +1,17 @@
+#!/bin/sh
+# Restore Linux time from the PW-SH6 i.MX28 RTC before BEAM starts.
+# The Brain firmware stores local-JST seconds since 2000-01-01 at HW_RTC_SECONDS.
+
+[ -x /root/devmem ] || exit 0
+
+raw=$(/root/devmem 0x80056030 2>/dev/null) || exit 0
+case "$raw" in
+    0x*|0X*)
+        epoch=$(( $((raw)) - 32400 + 946684800 ))
+        if [ "$epoch" -gt 1704067200 ] && [ "$epoch" -lt 2147483647 ]; then
+            /bin/date -s "@$epoch" >/dev/null 2>&1
+        fi
+        ;;
+esac
+
+exit 0

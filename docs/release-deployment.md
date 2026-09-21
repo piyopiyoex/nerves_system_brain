@@ -1,9 +1,60 @@
-# アプリケーション release の作成と配置
+# アプリケーション release / firmware の作成と配置
 
 `nerves_system_brain` は PW-SH6 向けの実行環境と release の配置先を提供し、
 アプリケーション固有のソースコードやビルド処理には依存しない。
-アプリケーションは完成した Elixir release を用意し、`sd/deploy_release.sh` で
-SD カードの `/srv/erlang` へ配置する。
+現在は Nerves 標準寄りの firmware 生成フローと、従来の ERTS 非同梱 release 配備フローを
+併存させている。
+
+## Nerves firmware フロー
+
+`examples/hello_kiosk/` は `nerves_system_brain` を通常の System dependency として参照し、
+`MIX_TARGET=brain` で target release と firmware を生成できる。
+
+```sh
+cd examples/hello_kiosk
+export MIX_TARGET=brain
+
+mise exec -- mix deps.get
+mise exec -- mix firmware
+```
+
+repository 内の example は `../..` の checkout を local path dependency として使う。
+System / toolchain package の公開後は version dependency へ置き換え、application 側の通常の
+Nerves workflow は変えない。
+
+この経路では `Nerves.Release.erts/0` により ERTS を release に同梱し、`mix firmware` が
+`examples/hello_kiosk/_build/brain_<env>/nerves/images/hello_kiosk_brain.fw` を生成する。
+`.fw` は既存の FAT p1 + ext4 p2 レイアウトを維持する。`complete` task は p1 を FAT32 として
+初期化し、fixed buildbrain release から取得・checksum 検証した direct-SD boot files と、p2 の
+ERTS 同梱 ext4 rootfs を書き込む。そのため blank SD の初回 provisioning に利用できる。
+
+microSD へ書き込む場合は、application directory から通常の Nerves task を使う。
+
+```sh
+mise exec -- mix burn
+```
+
+実デバイスに触れず disk image を作って `complete` task を検証する場合は、低レベル task を明示できる。
+
+```sh
+mise exec -- mix firmware.burn \
+  --device /tmp/hello_kiosk_brain.img --task complete -y
+```
+
+この経路で MBR、64 MiB の FAT p1、256 MiB の ext4 p2 が生成されることを確認済み。raw image の
+p1 に `edsh6exe.bin`、`zImage`、`imx28-pwsh6.dtb` があることと、p2 の release は検査済みである。
+blank SD での実機 boot は次の確認項目であり、失敗時の復旧には旧 deployment path を使用する。
+
+`hello_kiosk` は標準 SSH 実装として `NervesSSH` を使うため fwup SSH subsystem も依存関係に含まれる。
+ただし現在の `fwup.conf` の `upgrade` task は安全のため明示的に失敗するので、`mix upload` / OTA update は
+まだサポート対象ではない。初回 provisioning は `mix burn` を使う。
+
+## legacy release 配備フロー
+
+`sd/populate_sd.sh` と `sd/deploy_release.sh` は、既存 media の再構築や recovery のために残す
+legacy path である。通常の initial provisioning では、firmware 内に release を含めるため不要である。
+標準化 branch では独自 `SshDaemon` を削除しているため、この legacy release path は SSH を含む完全な
+feature parity ではなく、主に rootfs / application の切り分けと recovery 用として扱う。
 
 ## 責務の分担
 
@@ -37,8 +88,8 @@ System はアプリケーションの release をビルドしない。また、`
 `deploy_release.sh` に渡すディレクトリは、`mix release` などで作成した完成済みの
 release で、少なくとも `releases/` ディレクトリを含む必要がある。
 
-現在の PW-SH6 構成では System が target 用 ERTS を提供するため、アプリケーションの
-release には ERTS を含めない。
+旧配備フローでは System が target 用 ERTS を提供するため、アプリケーションの release には
+ERTS を含めない。
 
 ```elixir
 releases: [

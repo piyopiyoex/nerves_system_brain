@@ -4,7 +4,7 @@
 # pre-2024 clock as "unset" — run this after boot if the device has no
 # battery-backed RTC.
 set -eu
-HOST=user@10.42.0.2
+HOST=${HOST:-user@nerves.local}
 SSH_OPTS="-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 NOW=$(date -u '+%Y-%m-%d %H:%M:%S')

@@ -1,1 +1,2 @@
 CONFIG_LN=y
+CONFIG_TR=y

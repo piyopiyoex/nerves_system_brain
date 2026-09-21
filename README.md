@@ -12,11 +12,14 @@ LCD 854×480）向けのカスタム Nerves システム。
 動作例として `examples/hello_kiosk/` に `hello_kiosk_brain` を同梱する。
 
 設計の全体像と「標準 Nerves に寄せる部分 / Brain 固有として残す部分」の考え方は
-[`docs/README.md`](docs/README.md) を参照。
+[アーキテクチャ概要](docs/README.md) を参照。
+
+初めて実機で動かす場合は [初回セットアップガイド](docs/getting-started.md) を参照。
 
 ## 方針
 
-- `nerves_system_br`（v1.34.3 / Buildroot 2026.05.2）を standalone で使用
+- `nerves_system_br`（v1.34.3 / Buildroot 2026.05.2）を基盤にしつつ、通常の Nerves System
+  dependency として `MIX_TARGET=brain` から参照できる形へ段階移行
 - **カーネル・U-Boot・DTB はビルドせず**、[brain-hackers](https://github.com/brain-hackers)
   の成果物（buildbrain 2026-03-25 リリース）を流用
 - ツールチェーンは Bootlin `armv5-eabi--glibc--stable`（soft-float）
@@ -28,6 +31,10 @@ LCD 854×480）向けのカスタム Nerves システム。
 | パス                                            | 内容                                                                              |
 | ----------------------------------------------- | --------------------------------------------------------------------------------- |
 | `nerves_defconfig`                              | Buildroot 設定（arm926t / Bootlin armv5 / ext4 / カーネル非ビルド）               |
+| `mix.exs`                                       | `nerves_system_brain` を `type: :system` として定義する System package metadata   |
+| `toolchain/`                                    | `o/host` を再利用・artifact 化する `nerves_toolchain_brain`                       |
+| `fwup.conf`                                     | 既存 FAT p1 + ext4 p2 レイアウト向けの PoC firmware 定義                         |
+| `scripts/rel2fw.sh`                             | Nerves release から ext4 rootfs 入り `.fw` を生成する PoC script                 |
 | `rootfs_overlay/etc/erlinit.config`             | PW-SH6 の bring-up / USB NCM 開発用設定（[詳細](docs/erlinit.md)）                |
 | `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植）                     |
 | `busybox.fragment`                              | USB NCM setup に必要な BusyBox `ln` applet を追加                                 |
@@ -71,7 +78,6 @@ ARMv5 用 OTP アプリを取り込み、同じツールチェーンで `priv/ki
 
 ```sh
 cd examples/hello_kiosk
-./scripts/setup_ssh.sh
 ./scripts/build_release.sh
 ```
 
@@ -84,6 +90,48 @@ NERVES_BUILD_DIR=/path/to/build-output ./scripts/build_release.sh
 ```
 
 詳細は [`examples/hello_kiosk/README.md`](examples/hello_kiosk/README.md) を参照。
+
+### 標準 Nerves 開発フロー PoC
+
+`align-with-nerves-way` では、`nerves_system_brain` を通常の Nerves System dependency として
+扱う PoC も進めている。既存の `o/` Buildroot 出力を再利用し、`examples/hello_kiosk/` から
+`MIX_TARGET=brain` で参照する。
+
+```sh
+cd examples/hello_kiosk
+export MIX_TARGET=brain
+
+mise exec -- mix deps.get
+mise exec -- mix firmware
+mise exec -- mix burn
+```
+
+この repository 内の example は `../..` の `nerves_system_brain` を local path dependency として
+参照する。System / toolchain package を公開した後は version dependency へ置き換え、application 側の
+`MIX_TARGET=brain` / `mix firmware` / `mix burn` の流れは変えない方針とする。
+
+既存の `o/` から、通常の Nerves System artifact も生成できる。
+
+```sh
+mise exec -- mix deps.get
+scripts/fetch_boot_assets.sh
+mise exec -- mix nerves.artifact nerves_toolchain_brain --path /tmp/brain-artifacts
+mise exec -- mix nerves.artifact --path /tmp/brain-artifacts
+```
+
+生成物は `nerves_system_brain-portable-<version>-<checksum>.tar.gz` と host 別の
+`nerves_toolchain_brain-<host>-<version>-<checksum>.tar.xz`。両 artifact を repository 外へ
+展開し、`NERVES_SYSTEM` / `NERVES_TOOLCHAIN` をその path に指定した `hello_kiosk` の native
+code cross compile と `mix firmware` まで確認済み。artifact を isolated download/cache directory
+に置いた検証では、path override なしの Nerves resolver による両 artifact の取得と target compile
+も確認できている。`fetch_boot_assets.sh` 実行後に作った System artifact は blank-SD boot bundle も
+含む。GitHub release への公開と remote dependency としての取得は今後の作業になる。
+
+この経路では `Nerves.Release.erts/0` を使い、release を `/srv/erlang` へ含めた ext4 rootfs を
+`.fw` として生成する。`complete` task は FAT p1 と ext4 p2 を作成し、pinned buildbrain release から
+取得・checksum 検証した boot loader / kernel / DTB と application release をまとめて配置する。
+file target への firmware burn と生成 image の内容は host 上で確認済みで、blank SD からの実機 boot は
+実機確認項目として残している。
 
 ## SD カードの作成
 
@@ -148,10 +196,10 @@ USB0 は用途によって host / peripheral のどちらかを選択する。br
 
 ## SSH / crng メモ
 
-初期実装では、起動直後の乱数初期化と SSH の重い crypto 処理が UI を長時間ブロックする
-問題があった。現在の `hello_kiosk` では SSH の遅延起動・モジュール分散ロード・軽量な
-パスワード検証により回避している。調査経緯は
-`examples/hello_kiosk/docs/worklog/20260903_SSH起動不能_セカンドオピニオン質問書.md` を参照。
+初期実装では独自 OTP `:ssh` daemon の crypto 初期化が UI を長時間ブロックしたため、遅延起動などの
+PW-SH6 固有対策を入れていた。現在の標準化 branch では `NervesSSH` へ移行し、既知の PBKDF2 問題だけを
+軽量 `pwdfun` override として残している。NervesSSH の初回 host-key generation を含む起動 cost は
+次回実機で再確認する。過去の実測は worklog に残す。
 
 ## クレジット / ライセンス
 

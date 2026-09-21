@@ -1,0 +1,30 @@
+## VM flags kept close to the default Nerves project template.
+
+## Use Ctrl-C to interrupt the current shell rather than invoking the emulator's
+## break handler and possibly exiting the VM.
++Bc
+
+# Allow time warps so Erlang system time can follow Linux system time.
++C multi_time_warp
+
+# Load code only from the release paths.
+-code_path_choice strict
+
+# Avoid scheduler busy-waiting on this single-core ARMv5 device.
++sbwt none
++sbwtdcpu none
++sbwtdio none
+
+# Keep local shell history when the filesystem is writable.
+-kernel shell_history enabled
+
+## Start the Elixir shell on the device console.
+-noshell
+-user elixir
+-run elixir start_cli
+-elixir ansi_enabled true
+
+## Keep the VM running after CLI initialization.
+-extra --no-halt
+--
+--dot-iex /etc/iex.exs

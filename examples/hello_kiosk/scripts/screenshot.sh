@@ -4,7 +4,7 @@
 # Usage: scripts/screenshot.sh [out.png]   (default: ./brain_screen.png)
 set -eu
 OUT="${1:-brain_screen.png}"
-HOST=user@10.42.0.2
+HOST=${HOST:-user@nerves.local}
 SSH_OPTS="-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
 GEO=$(ssh $SSH_OPTS $HOST 'g="/sys/class/graphics/fb0/"; String.replace(String.trim(File.read!(g<>"virtual_size")),","," ")<>" "<>String.trim(File.read!(g<>"stride"))' 2>/dev/null | tr -d '"')

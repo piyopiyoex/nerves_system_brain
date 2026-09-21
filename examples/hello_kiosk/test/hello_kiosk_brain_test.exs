@@ -1,6 +1,5 @@
 defmodule HelloKioskBrainTest do
   use ExUnit.Case
-  import ExUnit.CaptureIO
 
   doctest HelloKioskBrain
 
@@ -8,25 +7,29 @@ defmodule HelloKioskBrainTest do
     assert HelloKioskBrain.hello() == :world
   end
 
-  test "SSH IEx MOTD describes the target and runtime" do
-    output = capture_io(fn -> HelloKioskBrain.IExHelpers.motd() end)
-
-    assert output =~ "SHARP Brain PW-SH6"
-    assert output =~ "hello_kiosk_brain 0.1.0"
-    assert output =~ "Elixir #{System.version()} / OTP #{:erlang.system_info(:otp_release)}"
+  test "SSH password fallback keeps the PW-SH6 lightweight credentials" do
+    assert HelloKioskBrain.SshAuth.check_password("user", "brain")
+    assert HelloKioskBrain.SshAuth.check_password(~c"user", ~c"brain")
+    refute HelloKioskBrain.SshAuth.check_password("user", "wrong")
+    refute HelloKioskBrain.SshAuth.check_password("other", "brain")
   end
 
-  test "SSH IEx dot file imports helper functions" do
-    dot_iex = Path.expand("../priv/iex.exs", __DIR__)
+  test "SSH IEx dot file enables the standard Nerves helpers" do
+    dot_iex = Path.expand("../rootfs_overlay/etc/iex.exs", __DIR__)
     {:ok, quoted} = Code.string_to_quoted(File.read!(dot_iex))
 
-    assert Macro.prewalk(quoted, false, fn
-             {:import, _, [{:__aliases__, _, [:HelloKioskBrain, :IExHelpers]}]} = node, _acc ->
-               {node, true}
+    {_quoted, helpers} =
+      Macro.prewalk(quoted, %{motd: false, toolshed: false}, fn
+        {{:., _, [{:__aliases__, _, [:NervesMOTD]}, :print]}, _, []} = node, acc ->
+          {node, %{acc | motd: true}}
 
-             node, acc ->
-               {node, acc}
-           end)
-           |> elem(1)
+        {:use, _, [{:__aliases__, _, [:Toolshed]}]} = node, acc ->
+          {node, %{acc | toolshed: true}}
+
+        node, acc ->
+          {node, acc}
+      end)
+
+    assert helpers == %{motd: true, toolshed: true}
   end
 end

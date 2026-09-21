@@ -247,7 +247,10 @@ defmodule HelloKioskBrain.Kiosk do
         dst
 
       File.exists?(src) ->
-        with {:ok, _} <- File.copy(src, dst), :ok <- File.chmod(dst, 0o755), do: dst, else: (_ -> nil)
+        with {:ok, _} <- File.copy(src, dst),
+             :ok <- File.chmod(dst, 0o755),
+             do: dst,
+             else: (_ -> nil)
 
       true ->
         nil
@@ -451,7 +454,9 @@ defmodule HelloKioskBrain.Kiosk do
     else
       wd = Enum.at(~w(月 火 水 木 金 土 日), :calendar.day_of_the_week(date) - 1)
       ndt = NaiveDateTime.from_erl!(jst)
-      {Calendar.strftime(ndt, "%Y-%m-%d") <> "(#{wd}) " <> Calendar.strftime(ndt, "%H:%M:%S"), @fg}
+
+      {Calendar.strftime(ndt, "%Y-%m-%d") <> "(#{wd}) " <> Calendar.strftime(ndt, "%H:%M:%S"),
+       @fg}
     end
   end
 
@@ -626,12 +631,42 @@ defmodule HelloKioskBrain.Kiosk do
 
     [
       Draw.text(div(@w, 2), 60, :mc, :jp32, @fg, "USB の役割を切り替え"),
-      Draw.text(div(@w, 2), 104, :mc, :jp20, @dim,
-        "現在: #{usb_mode_name(cur)}  (#{if supported, do: "選んで「リブート実行」", else: "この機種は非対応(#{UsbMode.model_code() || "?"})"})"),
-      usb_option(@usb_opt_host, "HOST", "ハブ経由: LAN / WiFi / BLE / 音声", st.usb_sel == :host, cur == :host),
-      usb_option(@usb_opt_ncm, "NCM", "母艦と直結: usb0 10.42.0.2", st.usb_sel == :peripheral, cur == :peripheral),
-      Draw.text(div(@w, 2), 290, :mc, :jp16, @dim, "boot 領域の imx28-pwsh6.dtb を差し替えて再起動します(両方同時には使えません)"),
-      usb_button(@usb_go, "リブート実行", if(supported, do: @warn, else: @tab_off), if(supported, do: @bg, else: @dim)),
+      Draw.text(
+        div(@w, 2),
+        104,
+        :mc,
+        :jp20,
+        @dim,
+        "現在: #{usb_mode_name(cur)}  (#{if supported, do: "選んで「リブート実行」", else: "この機種は非対応(#{UsbMode.model_code() || "?"})"})"
+      ),
+      usb_option(
+        @usb_opt_host,
+        "HOST",
+        "ハブ経由: LAN / WiFi / BLE / 音声",
+        st.usb_sel == :host,
+        cur == :host
+      ),
+      usb_option(
+        @usb_opt_ncm,
+        "NCM",
+        "母艦と直結: usb0 / VintageNetDirect",
+        st.usb_sel == :peripheral,
+        cur == :peripheral
+      ),
+      Draw.text(
+        div(@w, 2),
+        290,
+        :mc,
+        :jp16,
+        @dim,
+        "boot 領域の imx28-pwsh6.dtb を差し替えて再起動します(両方同時には使えません)"
+      ),
+      usb_button(
+        @usb_go,
+        "リブート実行",
+        if(supported, do: @warn, else: @tab_off),
+        if(supported, do: @bg, else: @dim)
+      ),
       usb_button(@usb_cancel, "キャンセル", @tab_off, @fg)
     ]
   end
@@ -640,13 +675,23 @@ defmodule HelloKioskBrain.Kiosk do
     [
       Draw.rrect(x, y, w, h, 12, if(selected, do: @panel, else: @bg)),
       Draw.rframe(x, y, w, h, 12, if(selected, do: @accent, else: @tab_off)),
-      Draw.text(x + div(w, 2), y + 34, :mc, :jp32, if(selected, do: @accent, else: @fg), title <> if(current, do: " (現在)", else: "")),
+      Draw.text(
+        x + div(w, 2),
+        y + 34,
+        :mc,
+        :jp32,
+        if(selected, do: @accent, else: @fg),
+        title <> if(current, do: " (現在)", else: "")
+      ),
       Draw.text(x + div(w, 2), y + 80, :mc, :jp16, @dim, sub)
     ]
   end
 
   defp usb_button({x, y, w, h}, label, bg, fg) do
-    [Draw.rrect(x, y, w, h, 10, bg), Draw.text(x + div(w, 2), y + div(h, 2), :mc, :jp24, fg, label)]
+    [
+      Draw.rrect(x, y, w, h, 10, bg),
+      Draw.text(x + div(w, 2), y + div(h, 2), :mc, :jp24, fg, label)
+    ]
   end
 
   defp usb_result(%{usb_msg: {:ok, sel}}) do
@@ -851,7 +896,10 @@ defmodule HelloKioskBrain.Kiosk do
       {:ok, ifs} ->
         for {name, props} <- ifs,
             name != ~c"lo",
-            {a, b, c, d} <- Keyword.get_values(props, :addr) |> Enum.filter(&match?({_, _, _, _}, &1)) |> Enum.take(1),
+            {a, b, c, d} <-
+              Keyword.get_values(props, :addr)
+              |> Enum.filter(&match?({_, _, _, _}, &1))
+              |> Enum.take(1),
             into: %{},
             do: {List.to_string(name), "#{a}.#{b}.#{c}.#{d}"}
 

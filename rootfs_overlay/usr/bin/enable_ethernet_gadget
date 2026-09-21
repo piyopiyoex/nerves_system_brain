@@ -1,14 +1,43 @@
 #!/bin/sh
-# USB NCM gadget for SHARP Brain (Nerves port, v2).
-# - BusyBox `ln` is enabled by busybox.fragment for configfs symlinks.
-# - Runs early from erlinit --pre-run-exec, so wait for the UDC to finish
-#   probing (it is still deferred at ~3s after boot) and take its real name
-#   from /sys/class/udc instead of hardcoding it.
+# Create the PW-SH6 USB NCM gadget when USB0 is in peripheral mode.
+# IP configuration is intentionally left to VintageNetDirect.
+
+DR_MODE=/proc/device-tree/ahb@80080000/usb@80080000/dr_mode
+LOG=/root/gadget_diag.log
+
+# Keep a persistent trace on the writable ext4 rootfs so a failed peripheral
+# boot can be diagnosed by mounting the SD card on the development PC.
+{
+    echo "=== enable_ethernet_gadget ==="
+    date 2>/dev/null || true
+    echo "DR_MODE=$DR_MODE"
+    if [ -r "$DR_MODE" ]; then
+        mode=$(tr -d '\000' < "$DR_MODE")
+        echo "dr_mode=$mode"
+        if [ "$mode" != "peripheral" ]; then
+            echo "skip: USB0 is not peripheral"
+            exit 0
+        fi
+    else
+        echo "warning: dr_mode is not readable"
+    fi
+
+    echo "configfs:"
+    mount | grep configfs || true
+    echo "UDC before gadget setup:"
+    ls -la /sys/class/udc 2>&1 || true
+} > "$LOG" 2>&1
 
 g=/sys/kernel/config/usb_gadget/eth
-[ -d "$g" ] && exit 0
+if [ -d "$g" ]; then
+    echo "gadget already exists: $g" >> "$LOG"
+    exit 0
+fi
 
-mkdir "$g" || exit 1
+if ! mkdir "$g" 2>> "$LOG"; then
+    echo "failed: mkdir $g" >> "$LOG"
+    exit 1
+fi
 
 echo "0x0200" > "$g"/bcdUSB
 echo "0x0200" > "$g"/bcdDevice
@@ -25,15 +54,13 @@ echo 250 > "$g"/configs/c.1/MaxPower
 mkdir "$g"/functions/ncm.usb0
 echo "8a:15:8b:44:3a:02" > "$g"/functions/ncm.usb0/dev_addr
 echo "8a:15:8b:44:3a:01" > "$g"/functions/ncm.usb0/host_addr
+if ! ln -s "$g"/functions/ncm.usb0 "$g"/configs/c.1/ncm.usb0 2>> "$LOG"; then
+    echo "failed: link NCM function into configuration" >> "$LOG"
+    exit 1
+fi
 
-# symlink the function into the config. BusyBox `ln` is enabled by busybox.fragment
-# (CONFIG_LN). `command -v` is unreliable here: erlinit's --pre-run-exec environment
-# does not reliably populate $PATH, so `command -v ln` can report "not found" even
-# though /bin/ln exists (ash's own bare-word exec falls back to a compiled-in PATH
-# that `command -v` does not use). Call `ln` directly instead of probing for it.
-ln -s "$g"/functions/ncm.usb0 "$g"/configs/c.1/ncm.usb0 || exit 1
-
-# Wait for a UDC to appear (up to 30s), then bind to it by its real name
+# The UDC can appear a few seconds after boot. Wait for it so usb0 exists before
+# the Nerves application starts; VintageNet will configure the interface later.
 n=0
 udc=
 while [ -z "$udc" ] && [ "$n" -lt 30 ]; do
@@ -45,22 +72,33 @@ while [ -z "$udc" ] && [ "$n" -lt 30 ]; do
         n=$((n + 1))
     fi
 done
+
 if [ -z "$udc" ]; then
-    echo "enable_ethernet_gadget: no UDC appeared - diag follows"
-    dmesg | grep -iE 'ci_hdrc|chipidea|udc|otg|usbphy|mxs.phy|deferred'
+    echo "failed: no UDC appeared after ${n}s" >> "$LOG"
     {
-        echo "=== ls /sys/class/udc ==="
-        ls /sys/class/udc
-        echo "=== dmesg (usb/phy) ==="
-        dmesg | grep -iE 'ci_hdrc|chipidea|udc|otg|usb|phy'
-        echo "=== full dmesg ==="
-        dmesg
-    } > /root/gadget_diag.log 2>&1
+        echo "=== /sys/class/udc ==="
+        ls -la /sys/class/udc 2>&1 || true
+        echo "=== USB/UDC kernel messages ==="
+        dmesg | grep -iE 'ci_hdrc|chipidea|udc|otg|usbphy|mxs.phy|deferred|usb' || true
+    } >> "$LOG" 2>&1
+    echo "enable_ethernet_gadget: no UDC appeared; see $LOG" >&2
     exit 1
 fi
 
-echo "$udc" > "$g"/UDC
+echo "UDC=$udc" >> "$LOG"
+if ! echo "$udc" > "$g"/UDC 2>> "$LOG"; then
+    echo "failed: bind gadget to UDC" >> "$LOG"
+    dmesg | tail -n 100 >> "$LOG" 2>&1 || true
+    exit 1
+fi
 
 sleep 1
-ip link set usb0 up
-ip addr add 10.42.0.2/24 dev usb0
+{
+    echo "bound UDC: $(cat "$g"/UDC 2>/dev/null)"
+    echo "network interfaces after bind:"
+    ls -la /sys/class/net 2>&1 || true
+    echo "USB/UDC kernel messages after bind:"
+    dmesg | grep -iE 'ci_hdrc|chipidea|udc|otg|usbphy|mxs.phy|usb' || true
+} >> "$LOG" 2>&1
+
+exit 0

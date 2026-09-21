@@ -30,3 +30,74 @@ jobs:
 
       - name: Run checks
         run: scripts/check.sh
+
+  system-project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Erlang/Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: '29.0.5'
+          elixir-version: '1.20.2-otp-29'
+          version-type: strict
+
+      - name: Install Nerves bootstrap
+        run: mix archive.install hex nerves_bootstrap 1.16.0 --force
+
+      - name: Fetch System dependencies
+        run: mix deps.get
+
+      - name: Check System formatting
+        run: mix format --check-formatted
+
+      - name: Lint Nerves System configuration
+        run: |
+          mkdir -p /tmp/nerves-system-empty-rules
+          cd deps/nerves_system_linter
+          MIX_ENV=prod mix compile
+          MIX_ENV=prod mix nerves.system.lint \
+            "$GITHUB_WORKSPACE/nerves_defconfig" \
+            /tmp/nerves-system-empty-rules
+
+      - name: Check toolchain project formatting
+        working-directory: toolchain
+        run: mix format --check-formatted
+
+  hello-kiosk-host:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/hello_kiosk
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Erlang/Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: '29.0.5'
+          elixir-version: '1.20.2-otp-29'
+          version-type: strict
+
+      - name: Install Nerves bootstrap
+        run: mix archive.install hex nerves_bootstrap 1.16.0 --force
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libmnl-dev
+
+      - name: Fetch dependencies
+        run: mix deps.get
+
+      - name: Check formatting
+        run: mix format --check-formatted
+
+      - name: Run host tests
+        run: mix test
+
+      - name: Resolve Brain target dependencies
+        run: MIX_TARGET=brain mix deps.get

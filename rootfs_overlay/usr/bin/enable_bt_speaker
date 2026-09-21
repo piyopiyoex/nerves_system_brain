@@ -1,6 +1,6 @@
 #!/bin/sh
-# Bluetooth speaker (A2DP source) bring-up for the Brain KIOSK. Called from enable_net.
-# Runs only when /root/bt_speaker.conf exists (per-unit setting, like wpa_supplicant.conf):
+# Bluetooth speaker (A2DP source) bring-up for the Brain KIOSK. Called by erlinit when configured.
+# Runs only when /root/bt_speaker.conf exists (per-unit setting):
 #     MAC=AA:BB:CC:DD:EE:FF      # speaker address (required)
 #     NAME=ZoeeTree S1+          # display name (optional)
 # Without the file the BT dongle stays free for the SwitchBot BLE scanner (HCI USER channel);

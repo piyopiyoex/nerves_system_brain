@@ -38,7 +38,7 @@ LGFX_SOURCES = \
 
 NIF_SOURCES = c_src/kiosk_nif.cpp
 
-CPPFLAGS = -DLGFX_USE_V1 -DLGFX_LINUX_FB \
+CPPFLAGS += -DLGFX_USE_V1 -DLGFX_LINUX_FB \
 	-I$(LGFX_SRC) -I$(ERTS_INCLUDE_DIR)
 # -ffunction-sections/-fdata-sections + --gc-sections で未使用シンボルを除去する。
 # LovyanGFX の Fonts wildcard は efont(ja/cn/kr/tw ~93MB) を含むが NIF は IPA
