@@ -19,8 +19,16 @@ if [ -x /root/devmem ]; then
     esac
 fi
 
-/usr/bin/enable_wired_lan
-/usr/bin/enable_wifi
-# Bluetooth speaker stack (only if /root/bt_speaker.conf exists; backgrounds itself)
-[ -x /usr/bin/enable_bt_speaker ] && /usr/bin/enable_bt_speaker
+# USB0 role is decided by the DTB (dr_mode). HOST: EHCI root hub usb1 exists -> hub with
+# LAN/WiFi/BT/audio. PERIPHERAL: a UDC exists -> USB NCM gadget to the dev host (usb0
+# 10.42.0.2). The KIOSK "USB" dialog swaps imx28-pwsh6.dtb and reboots (HelloKioskBrain.UsbMode).
+if [ -e /sys/bus/usb/devices/usb1 ]; then
+    /usr/bin/enable_wired_lan
+    /usr/bin/enable_wifi
+    # Bluetooth speaker stack (only if /root/bt_speaker.conf exists; backgrounds itself)
+    [ -x /usr/bin/enable_bt_speaker ] && /usr/bin/enable_bt_speaker
+else
+    # gadget script waits up to 30s for the UDC and configures usb0; keep it off the boot path
+    [ -x /usr/bin/enable_ethernet_gadget ] && /usr/bin/enable_ethernet_gadget </dev/null >/root/gadget.log 2>&1 &
+fi
 exit 0
