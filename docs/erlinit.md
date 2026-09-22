@@ -1,4 +1,4 @@
-# PW-SH6 の erlinit bring-up profile
+# PW-SH6 の erlinit 立ち上げ用プロファイル
 
 ## 現在の位置づけ
 

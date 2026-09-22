@@ -1,43 +1,39 @@
-# 2026-09-22 USB NCM real-device verification
+# 2026-09-22 USB NCM 実機検証
 
-## Goal
+## 目的
 
-Verify the normalized USB development path on a real SHARP Brain PW-SH6 after
-moving networking policy to NervesPack / VintageNet:
+networking policy を NervesPack / VintageNet へ移行した後の、SHARP Brain PW-SH6 実機における
+USB 開発経路を確認する。
 
 ```text
 PW-SH6 peripheral DTB
-  -> erlinit hardware preparation
+  -> erlinit によるハードウェア準備
   -> configfs NCM gadget
   -> VintageNetDirect
   -> mDNS
   -> NervesSSH / IEx
 ```
 
-The firmware was built through the normal application flow and written to a
-blank microSD with `mix burn`. Because the `complete` task installs the host-mode
-DTB, `sd/use_usb_ncm.sh` was run after the burn to replace p1
-`imx28-pwsh6.dtb` with the peripheral variant.
+firmware は通常の application flow で生成し、`mix burn` で blank microSD に書き込んだ。
+`complete` task は host-mode DTB を配置するため、burn 後に `sd/use_usb_ncm.sh` を実行し、
+p1 の `imx28-pwsh6.dtb` を peripheral 版へ置き換えた。
 
-## Finding 1: erlinit keeps one pre-run command
+## 調査結果 1: erlinit の pre-run command は1つだけ保持される
 
-The first peripheral boot reached Nerves and rendered the KIOSK, but the Linux
-host did not enumerate an NCM device. The expected gadget diagnostic file was
-also absent from p2.
+最初の peripheral boot では Nerves まで起動し KIOSK も描画されたが、Linux host 側では
+NCM device が列挙されなかった。また、p2 に作成されるはずの gadget 診断ログも存在しなかった。
 
-Inspection of the generated and burned `erlinit.config` showed that repeated
-`--pre-run-exec` entries did not preserve all three PW-SH6 helpers. `erlinit`
-v1.15.1 represents `pre_run_exec` as a single string, so later occurrences
-replace earlier ones.
+generated / burned の `erlinit.config` を確認したところ、複数記述した `--pre-run-exec` が
+PW-SH6 用 helper 3つをすべて保持していないことが分かった。`erlinit` v1.15.1 の
+`pre_run_exec` は単一文字列として扱われるため、後から指定した値で前の値が上書きされる。
 
-The System now uses one entry:
+System 側では、現在は1つだけ指定する。
 
 ```text
 --pre-run-exec /usr/bin/prepare_brain_hardware
 ```
 
-`prepare_brain_hardware` keeps the individual responsibilities separate and
-invokes them in order:
+`prepare_brain_hardware` から各処理を分離したまま、次の順序で呼び出す。
 
 ```text
 restore_brain_rtc
@@ -45,14 +41,14 @@ enable_ethernet_gadget
 enable_bt_speaker
 ```
 
-This keeps hardware preparation below the networking policy boundary while
-matching erlinit's actual option semantics.
+これにより、hardware preparation を networking policy より下の層に保ちつつ、
+`erlinit` の実際の option semantics に合わせられる。
 
-## Finding 2: the gadget helper requires BusyBox tr
+## 調査結果 2: gadget helper には BusyBox tr が必要
 
-After the single pre-run helper was in place, `/root/gadget_diag.log` proved
-that `enable_ethernet_gadget` was finally being executed, but it stopped while
-reading the Device Tree property:
+pre-run helper を1つに集約した後、`/root/gadget_diag.log` が生成され、
+`enable_ethernet_gadget` 自体は実行されていることを確認できた。ただし Device Tree property の
+読み取り時点で停止していた。
 
 ```text
 /usr/bin/enable_ethernet_gadget: line 15: tr: not found
@@ -60,33 +56,31 @@ dr_mode=
 skip: USB0 is not peripheral
 ```
 
-The helper uses `tr -d '\000'` because Device Tree string properties are NUL
-terminated. The System's BusyBox configuration did not include `tr`.
+Device Tree の文字列 property は NUL 終端のため、helper では `tr -d '\000'` を使用する。
+しかし System の BusyBox 設定では `tr` が有効になっていなかった。
 
-`busybox.fragment` therefore explicitly enables both applets used by the gadget
-setup:
+そのため `busybox.fragment` では、gadget setup で使用する applet を明示的に有効化する。
 
 ```text
 CONFIG_LN=y
 CONFIG_TR=y
 ```
 
-The Buildroot output must be regenerated after changing the fragment. During
-this verification, a stale `o/.config` still referenced the removed
-`post-build-wifi.sh`; rerunning `create-build.sh nerves_defconfig o` resynced the
-Buildroot configuration before the successful rebuild.
+fragment を変更した後は Buildroot output の再生成が必要である。この検証では、古い `o/.config` に
+削除済みの `post-build-wifi.sh` が残っていたため、`create-build.sh nerves_defconfig o` を再実行して
+Buildroot configuration を現在の `nerves_defconfig` と同期してから再ビルドした。
 
-The final rootfs was checked before burning:
+burn 前に、最終 rootfs に `tr` が入っていることを確認した。
 
 ```text
 o/target/usr/bin/tr -> ../../bin/busybox
-./usr/bin/tr -> ../../bin/busybox   # in o/images/rootfs.tar
+./usr/bin/tr -> ../../bin/busybox   # o/images/rootfs.tar 内
 ```
 
-## Real-device result
+## 実機結果
 
-After rebuilding and burning the firmware, then selecting the peripheral DTB,
-the Linux development PC enumerated the PW-SH6 as CDC NCM:
+firmware を再ビルドして burn し、peripheral DTB を選択して起動したところ、Linux 開発 PC 側で
+PW-SH6 が CDC NCM device として列挙された。
 
 ```text
 Product: Brain (Nerves)
@@ -95,25 +89,25 @@ cdc_ncm ... MAC-Address: 8a:15:8b:44:3a:01
 cdc_ncm ... enx8a158b443a01: renamed from usb0
 ```
 
-The host received a peer address automatically. In this boot:
+host 側には peer address が自動で割り当てられた。この boot では次の値だった。
 
 ```text
 PW-SH6 usb0: 172.31.172.181/30
 Linux host:   172.31.172.182/30
 ```
 
-These addresses are an observed example, not a fixed configuration contract.
-`VintageNetDirect` owns the /30 selection and DHCP behavior.
+これらは実測例であり、固定値として扱う契約ではない。/30 subnet の選択と DHCP behavior は
+`VintageNetDirect` が管理する。
 
-mDNS and SSH then worked without manual host-side IP configuration:
+host 側で手動 IP 設定を行わずに、mDNS と SSH が動作した。
 
 ```text
 ping nerves.local
 ssh user@nerves.local
 ```
 
-`ssh user@nerves.local` opened the standard Nerves IEx session. On the target,
-`VintageNet.info()` reported:
+`ssh user@nerves.local` から通常の Nerves IEx session に接続できた。target 側の
+`VintageNet.info()` では次のように確認できた。
 
 ```text
 Interface usb0
@@ -124,25 +118,23 @@ Interface usb0
   Addresses: ... 172.31.172.181/30
 ```
 
-The expected applications were also running:
+想定していた application も起動していた。
 
 ```elixir
 [:nerves_pack, :mdns_lite, :vintage_net, :nerves_ssh]
 ```
 
-`ifconfig()` showed `usb0` as up/running with the configured IPv4 and IPv6
-link-local addresses.
+`ifconfig()` でも `usb0` が up/running であり、IPv4 と IPv6 link-local address が設定されていることを
+確認した。
 
-## Remaining boundaries
+## 現時点で残している境界
 
-- `mix upload` / OTA firmware update is still unsupported. The current writable
-  single-root ext4 layout has no safe inactive slot, and the `upgrade` task is
-  intentionally disabled.
-- `mix burn` restores the host-mode DTB in p1. Run `sd/use_usb_ncm.sh` after each
-  burn when the development path should use USB NCM.
-- `Nerves.Runtime.KV.get_all()` currently returns `%{}`, so the Nerves MOTD shows
-  `unknown 0.0.0 - unknown` / `Platform: unknown`. This is a separate System
-  metadata normalization issue and did not affect boot, networking, or SSH.
-- `/root/gadget_diag.log` is bring-up instrumentation. It is useful while the
-  USB role path is still being stabilized, but it can be reduced or removed
-  independently after the failure path is considered sufficiently observable.
+- `mix upload` / OTA firmware update は引き続き未サポートとする。現在の writable single-root ext4
+  layout には安全に書き換えられる inactive slot がなく、`upgrade` task も意図的に無効化している。
+- `mix burn` を実行すると p1 の DTB は host-mode に戻る。USB NCM を使う開発経路では、burn のたびに
+  `sd/use_usb_ncm.sh` を実行する。
+- `Nerves.Runtime.KV.get_all()` は現在 `%{}` を返すため、Nerves MOTD では
+  `unknown 0.0.0 - unknown` / `Platform: unknown` と表示される。これは System metadata の別課題であり、
+  boot、networking、SSH の動作には影響しなかった。
+- `/root/gadget_diag.log` は bring-up 用の診断 instrumentation である。USB role path を安定化する間は
+  有用だが、障害時の観測性が十分と判断できた段階で、独立して簡略化または削除できる。

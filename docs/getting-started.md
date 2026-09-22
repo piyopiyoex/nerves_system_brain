@@ -116,7 +116,7 @@ sudo bash sd/use_usb_ncm.sh /dev/sdX
 `/dev/sdX` は実際の microSD のデバイス名に読み替える。
 `erlinit.config` の手作業による切り替えは不要。
 
-### Ethernet
+### 有線 LAN
 
 Ethernet を使う場合は追加の SD 設定は不要。blank SD firmware に入る upstream の
 `imx28-pwsh6.dtb` は USB host 構成なので、そのまま使用する。
@@ -152,7 +152,7 @@ ssh user@nerves.local
 `nerves.local` が名前解決できない環境では、KIOSK 画面または Linux PC の network state から
 PW-SH6 側の address を確認して直接指定する。
 
-### Ethernet
+### 有線 LAN
 
 host DTB では USB Ethernet adapter を `VintageNetEthernet` が管理し、LAN の DHCP server から
 address を取得する。mDNS が利用できれば USB direct と同じ名前で接続できる。

@@ -57,10 +57,10 @@ git clone --branch v1.34.3 --depth 1 \
 make -C o           # OTP 29 の armv5 クロスビルドを含むため時間がかかる
 ```
 
-USB NCM の configfs setup に必要な `ln` は `busybox.fragment` で BusyBox に追加する。
+USB NCM の configfs setup に必要な `ln` と `tr` は `busybox.fragment` で BusyBox に追加する。
 `enable_ethernet_gadget` は標準の `ln -s` を使用し、独自 helper は必要としない。
 
-### erlinit bring-up profile
+### erlinit 立ち上げ用プロファイル
 
 現在の `erlinit.config` は、PW-SH6 の実機 bring-up と USB NCM を使った開発を優先した
 構成である。詳細な起動ログ、LCD コンソール、Erlang 終了後の調査用 shell などは

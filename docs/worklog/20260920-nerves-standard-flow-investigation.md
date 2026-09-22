@@ -1,12 +1,11 @@
-# 2026-09-20 Nerves standard flow investigation
+# 2026-09-20 Nerves 標準開発フロー調査
 
-## Goal
+## 目的
 
-Investigate whether `nerves_system_brain` can move from the current
-standalone-like `nerves_system_br` workflow toward a normal Nerves System
-dependency while preserving the PW-SH6 boot/storage path that already works.
+現在の standalone に近い `nerves_system_br` の利用形態から、PW-SH6 で既に動作している
+boot / storage path を維持したまま、通常の Nerves System dependency に寄せられるかを調査する。
 
-The immediate PoC target is:
+最初の PoC では、次のコマンドが成立することを目標とする。
 
 ```sh
 export MIX_TARGET=brain
@@ -14,91 +13,83 @@ mix deps.get
 mix compile
 ```
 
-`mix firmware` and `mix firmware.burn` are treated as follow-up work unless a
-minimal `fwup.conf` is enough without changing the storage model.
+`mix firmware` と `mix firmware.burn` は、storage model を変更せず最小限の `fwup.conf` で
+成立する場合に限って後続作業として扱う。
 
-## Compared Repositories
+## 比較したリポジトリ
 
 ### `nerves_system_atomcam2`
 
-Reusable:
+再利用できる点:
 
-- Root `mix.exs` declares `type: :system`.
-- `Nerves.System.BR` remains the Buildroot platform.
-- A target-specific app dependency selects the system with `targets: :atomcam2`.
-- Development can switch between a released system and a local path dependency.
-- Application releases use `include_erts: &Nerves.Release.erts/0`.
-- Toolchain concerns are represented as a Nerves `type: :toolchain` package.
+- root の `mix.exs` で `type: :system` を宣言している。
+- Buildroot platform として `Nerves.System.BR` を使用している。
+- target-specific な app dependency が `targets: :atomcam2` で System を選択する。
+- 開発時に released System と local path dependency を切り替えられる。
+- application release で `include_erts: &Nerves.Release.erts/0` を使用している。
+- toolchain を Nerves の `type: :toolchain` package として表現している。
 
-Needs adjustment for Brain:
+Brain 向けに調整が必要な点:
 
-- AtomCam2 uses a published custom toolchain artifact. Brain currently uses the
-  Bootlin toolchain produced inside the Buildroot output under `o/host`.
-- AtomCam2's `fwup.conf` models an A/B application slot layout. Brain must keep
-  the existing p1 FAT + p2 ext4 layout during the first migration stage.
-- AtomCam2 uses squashfs for the application rootfs. Brain currently requires
-  ext4 because the validated brain-hackers kernel does not provide squashfs.
+- AtomCam2 は公開済みの custom toolchain artifact を使用する。Brain は現在、Buildroot output の
+  `o/host` に生成される Bootlin toolchain を使用している。
+- AtomCam2 の `fwup.conf` は A/B application slot layout を前提とする。Brain の最初の移行段階では、
+  現在の p1 FAT + p2 ext4 layout を維持する必要がある。
+- AtomCam2 は application rootfs に squashfs を使用する。Brain で検証済みの brain-hackers kernel は
+  squashfs に対応していないため、現在は ext4 が必要である。
 
-### Upstream-style system (`nerves_system_rpi3`)
+### upstream style の System (`nerves_system_rpi3`)
 
-Reusable:
+再利用できる点:
 
-- `type: :system`, `platform: Nerves.System.BR`, and `platform_config:
-  [defconfig: "nerves_defconfig"]`.
-- `env` entries for `TARGET_ARCH`, `TARGET_CPU`, `TARGET_OS`, `TARGET_ABI`, and
-  `TARGET_GCC_FLAGS`.
-- Keeping boot and rootfs customization in the system package rather than in the
-  application.
+- `type: :system`、`platform: Nerves.System.BR`、`platform_config: [defconfig: "nerves_defconfig"]`
+  という構成。
+- `TARGET_ARCH`、`TARGET_CPU`、`TARGET_OS`、`TARGET_ABI`、`TARGET_GCC_FLAGS` を `env` で提供する。
+- boot / rootfs の customization を application ではなく System package 側に置く。
 
-Needs adjustment for Brain:
+Brain 向けに調整が必要な点:
 
-- Upstream systems expect a complete firmware image and `fwup` layout. Brain can
-  expose a system dependency before adopting a full firmware/update model.
-- Upstream ARM systems assume newer ARM cores and hard-float toolchains. Brain is
-  ARM926EJ-S / ARMv5TEJ / soft-float.
+- upstream System は完全な firmware image と `fwup` layout を前提とする。Brain は full firmware / update
+  model を採用する前に、まず System dependency として利用できる形を提供できる。
+- upstream の ARM System は、より新しい ARM core と hard-float toolchain を前提とする。
+  Brain は ARM926EJ-S / ARMv5TEJ / soft-float である。
 
 ### `circuits_quickstart`
 
-Reusable:
+再利用できる点:
 
-- Application `mix.exs` has `@all_targets` and target-specific system deps.
-- `config/config.exs` starts `:nerves_bootstrap`.
-- Target release uses `include_erts: &Nerves.Release.erts/0` and
-  `steps: [&Nerves.Release.init/1, :assemble]`.
-- `cli/0` keeps `run` and `test` on host by default.
+- application の `mix.exs` に `@all_targets` と target-specific System dependency がある。
+- `config/config.exs` から `:nerves_bootstrap` を起動する。
+- target release で `include_erts: &Nerves.Release.erts/0` と
+  `steps: [&Nerves.Release.init/1, :assemble]` を使用する。
+- `cli/0` により `run` と `test` は既定で host 上で実行する。
 
-Needs adjustment for Brain:
+Brain 向けに調整が必要な点:
 
-- `hello_kiosk` currently has a validated ERTS-less deployment to `/srv/erlang`.
-  A standard Nerves release should be added without immediately deleting that
-  path.
-- Native code must be built through the Nerves environment. The existing
-  Makefile already accepts `CC`, `CXX`, and `ERTS_INCLUDE_DIR`, so it is a good
-  fit for `elixir_make`.
+- `hello_kiosk` には `/srv/erlang` へ配置する ERTS 非同梱 release の実績がある。standard Nerves release
+  を追加する際も、その経路をすぐに削除しない。
+- native code は Nerves environment を通してビルドする必要がある。既存 Makefile は既に `CC`、`CXX`、
+  `ERTS_INCLUDE_DIR` を受け取れるため、`elixir_make` と相性がよい。
 
-## PoC Changes
+## PoC での変更
 
-- Added a root `mix.exs` that declares `nerves_system_brain` as a Nerves
-  `type: :system` package.
-- Added `NervesSystemBrain.Platform`, a small wrapper around `Nerves.System.BR`.
-  It reuses an existing `o/` Buildroot output when present and falls back to the
-  normal Buildroot artifact build otherwise.
-- Added a minimal `toolchain/` package named `nerves_toolchain_brain`. For local
-  development it reuses `o/host`; publishing it as an independent artifact is a
-  follow-up.
-- Updated `examples/hello_kiosk` toward a target-aware Nerves application shape:
-  target list, local system dependency, `elixir_make`, `Nerves.Release.erts/0`,
-  and `config/config.exs`.
-- Adjusted the native Makefile to preserve Nerves-provided `CPPFLAGS` so the
-  sysroot and target flags survive the `elixir_make` path.
+- root に `mix.exs` を追加し、`nerves_system_brain` を Nerves の `type: :system` package として定義した。
+- `NervesSystemBrain.Platform` を追加した。これは `Nerves.System.BR` の小さな wrapper であり、既存の
+  `o/` Buildroot output がある場合はそれを再利用し、ない場合は通常の Buildroot artifact build に
+  fallback する。
+- `nerves_toolchain_brain` という最小の `toolchain/` package を追加した。local development では
+  `o/host` を再利用する。独立した artifact としての公開は後続課題とする。
+- `examples/hello_kiosk` を target-aware な Nerves application に近づけた。target list、local System
+  dependency、`elixir_make`、`Nerves.Release.erts/0`、`config/config.exs` を追加した。
+- native Makefile を調整し、Nerves から渡される `CPPFLAGS` を保持することで、sysroot と target flags が
+  `elixir_make` 経路でも失われないようにした。
 
-## Findings
+## 調査結果
 
-### Host-side PoC verification
+### ホスト側 PoC の確認
 
-The following commands were verified from `examples/hello_kiosk/` using the
-project's `mise` toolchain wrapper because plain `mix` was not on the shell
-`PATH`:
+`examples/hello_kiosk/` から次のコマンドを実行して確認した。通常の shell では `mix` が `PATH` に
+入っていなかったため、project の `mise` toolchain wrapper を使用した。
 
 ```sh
 MIX_TARGET=brain mise exec -- mix deps.get
@@ -107,29 +98,25 @@ MIX_ENV=prod MIX_TARGET=brain mise exec -- mix release --overwrite
 MIX_ENV=prod MIX_TARGET=brain mise exec -- mix firmware
 ```
 
-Results:
+結果:
 
-- `mix deps.get` resolves the target app with `nerves_system_brain` as a normal
-  target-specific system dependency.
-- `mix compile` recognizes `MIX_TARGET=brain`, compiles the Elixir application,
-  and drives `elixir_make` through the Nerves environment.
-- The generated native artifacts are target ARM EABI5 binaries:
-  `priv/kiosk_nif.so` is an ARM shared object and `priv/bin/devmem` is an ARM
-  executable.
-- `mix release` assembles a Brain target release with `erts-17.0.5` and
-  `shoehorn.boot` under `_build/brain_prod/rel/hello_kiosk_brain/`.
-- `mix firmware` builds
-  `_build/brain_prod/nerves/images/hello_kiosk_brain.fw` through a
-  Brain-specific ext4 `rel2fw.sh` path.
-- Expanding the `.fw` with `fwup -a -t complete` produces a raw image with the
-  current p1/p2 partition geometry. Extracting p2 confirms an ext4 rootfs with
-  `/srv/erlang/releases/0.1.0` and the generated `/etc/erlinit.config` present
-  with root ownership.
+- `mix deps.get` は `nerves_system_brain` を通常の target-specific System dependency として解決した。
+- `mix compile` は `MIX_TARGET=brain` を認識し、Elixir application を compile し、Nerves environment
+  経由で `elixir_make` を実行した。
+- 生成された native artifact は target 用 ARM EABI5 binary だった。`priv/kiosk_nif.so` は ARM shared
+  object、`priv/bin/devmem` は ARM executable である。
+- `mix release` は Brain target release を `erts-17.0.5` と `shoehorn.boot` を含む形で
+  `_build/brain_prod/rel/hello_kiosk_brain/` に生成した。
+- `mix firmware` は Brain 固有の ext4 `rel2fw.sh` 経路を通して
+  `_build/brain_prod/nerves/images/hello_kiosk_brain.fw` を生成した。
+- `.fw` を `fwup -a -t complete` で展開すると、現在の p1/p2 partition geometry を持つ raw image が
+  得られた。p2 を展開すると、`/srv/erlang/releases/0.1.0` と生成済み `/etc/erlinit.config` が
+  root owner で存在することを確認できた。
 
-### SD-card write verification
+### SD カード書き込みの確認
 
-On 2026-09-21, the generated `.fw` was written to a prepared SD card that
-already contained the known-good brain-hackers boot files on p1:
+2026-09-21、生成した `.fw` を、p1 に known-good な brain-hackers boot files が既に入っている
+準備済み SD カードへ書き込んだ。
 
 ```sh
 sudo o/host/bin/fwup -a -d /dev/sda -t complete \
@@ -137,22 +124,22 @@ sudo o/host/bin/fwup -a -d /dev/sda -t complete \
 sync
 ```
 
-`fwup` completed successfully:
+`fwup` は正常に完了した。
 
 ```text
 100% [====================================] 17.11 MB in / 268.44 MB out
 Success!
 ```
 
-After the write, `lsblk` reported the expected PoC partition shape:
+書き込み後の `lsblk` では、PoC で想定した partition 構成を確認した。
 
-| Partition | Size | Filesystem | Label |
+| パーティション | サイズ | ファイルシステム | ラベル |
 | --- | ---: | --- | --- |
 | `/dev/sda1` | 64M | vfat | `boot` |
 | `/dev/sda2` | 256M | ext4 | `rootfs` |
 
-The `.fw` artifact used for the SD write was re-expanded locally after the card
-write. Extracting p2 from that raw image confirmed the release tree:
+SD への書き込み後、使用した `.fw` artifact をローカルでも再展開し、raw image の p2 を確認した。
+release tree には次が含まれていた。
 
 - `/srv/erlang/erts-17.0.5`
 - `/srv/erlang/lib`
@@ -161,20 +148,19 @@ write. Extracting p2 from that raw image confirmed the release tree:
 - `/srv/erlang/releases/0.1.0/start.boot`
 - `/srv/erlang/releases/0.1.0/sys.config`
 
-The direct SD-card `debugfs` check showed the generated `/etc/erlinit.config`.
-The release-directory listing from the live block device was inconclusive in the
-captured terminal output, so the remaining proof point is a PW-SH6 boot test
-with serial/console logs.
+実 SD card block device を `debugfs` で直接確認し、生成済み `/etc/erlinit.config` が存在することも
+確認した。live block device 上の release directory listing は取得した terminal output だけでは
+判断できなかったため、この時点で残る確認項目は serial / console log を伴う PW-SH6 実機 boot だった。
 
-### First PW-SH6 boot result
+### 最初の PW-SH6 boot 結果
 
-The first SD-card boot reached the expected platform layers:
+最初の SD-card boot では、想定した platform layer まで到達した。
 
-- kernel mounted `/dev/mmcblk1p2` as ext4 rootfs
-- `/sbin/init` started `erlinit` 1.15.1
-- `erlinit` found the release path and launched Erlang
+- kernel が `/dev/mmcblk1p2` を ext4 rootfs として mount した。
+- `/sbin/init` が `erlinit` 1.15.1 を起動した。
+- `erlinit` が release path を見つけて Erlang を起動した。
 
-The Erlang VM then terminated before the application started:
+その後、application が起動する前に Erlang VM が終了した。
 
 ```text
 {bad_heart_flag,false}
@@ -183,85 +169,77 @@ The Erlang VM then terminated before the application started:
 erlinit: Erlang VM exited
 ```
 
-Root cause: the first PoC `rel/vm.args.eex` included `-heart false`. In Erlang,
-`-heart` is a flag that enables heart; `false` is not a valid way to disable it.
-The fix is to omit the `-heart` flag entirely during Brain bring-up.
+原因は最初の PoC `rel/vm.args.eex` に `-heart false` を記述していたことだった。Erlang の `-heart` は
+heart を有効にする flag であり、`false` を指定して無効化する形式ではない。Brain bring-up では
+`-heart` 自体を省略することで修正する。
 
-The firmware was rebuilt after removing that flag:
+修正後に firmware を再ビルドした。
 
 ```text
 Firmware UUID: offer-chalk (932a3365-d91b-5e35-eaeb-9b14bb004a22)
 ```
 
-The rebuilt `.fw` was expanded locally and p2 was inspected with `debugfs`; the
-embedded `/srv/erlang/releases/0.1.0/vm.args` no longer contains any `-heart`
-entry.
+再生成した `.fw` をローカルで展開し、p2 の `/srv/erlang/releases/0.1.0/vm.args` を `debugfs` で
+確認したところ、`-heart` は含まれていなかった。
 
-### Post-rebase firmware overlay fix
+### rebase 後の firmware overlay 修正
 
-After rebasing onto `origin/main` with PR #41/#42, firmware generation was
-rechecked against the updated USB HOST/NCM scripts. This exposed a packaging
-gap: the generated ext4 rootfs contained `/etc/erlinit.config`, but not
-`/usr/bin/enable_net`, even though `erlinit.config` runs it via
-`--pre-run-exec`.
+PR #41/#42 を含む `origin/main` へ rebase した後、更新された USB HOST/NCM script に合わせて
+firmware generation を再確認した。この確認で packaging の不足が見つかった。生成した ext4 rootfs には
+`/etc/erlinit.config` がある一方、`erlinit.config` が `--pre-run-exec` から実行する
+`/usr/bin/enable_net` が含まれていなかった。
 
-Root cause: the reusable local System artifact did not materialize the System
-package's `rootfs_overlay/`, and the Brain-specific `rel2fw.sh` only appended
-application-generated overlays.
+原因は、再利用する local System artifact が System package の `rootfs_overlay/` を materialize しておらず、
+Brain 固有の `rel2fw.sh` も application 側で生成した overlay だけを追加していたことだった。
 
-Fix:
+修正内容:
 
-- `NervesSystemBrain.Platform` now copies the package-level `rootfs_overlay/`
-  into `.nerves/reusable-system-artifact`.
-- `scripts/rel2fw.sh` appends `$NERVES_SYSTEM/rootfs_overlay` before app
-  overlays, so System-owned boot/network scripts stay below the application
-  boundary.
+- `NervesSystemBrain.Platform` で package-level の `rootfs_overlay/` を
+  `.nerves/reusable-system-artifact` にコピーする。
+- `scripts/rel2fw.sh` で application overlay より前に `$NERVES_SYSTEM/rootfs_overlay` を追加し、
+  System が所有する boot / network script を application より下の層に保つ。
 
-The rebased firmware was rebuilt successfully:
+rebase 後の firmware は正常に再ビルドできた。
 
 ```text
 Firmware UUID: ring-visa (b0eca2a7-2e4d-5df1-c3e8-397f556454a9)
 ```
 
-Expanding that `.fw` and inspecting p2 confirmed:
+その `.fw` を展開して p2 を確認した結果:
 
-- `/usr/bin/enable_net` is present with mode `0775`
-- `/usr/bin/enable_ethernet_gadget` is present with mode `0775`
-- `/srv/erlang/releases/0.1.0/vm.args` still omits `-heart`
-- `/usr/bin/enable_net` contains the rebased PR #41/#42 USB role logic
+- `/usr/bin/enable_net` が mode `0775` で存在する。
+- `/usr/bin/enable_ethernet_gadget` が mode `0775` で存在する。
+- `/srv/erlang/releases/0.1.0/vm.args` には引き続き `-heart` がない。
+- `/usr/bin/enable_net` には rebase 後の PR #41/#42 の USB role logic が含まれる。
 
-The `ring-visa` firmware was then written to the prepared SD card:
+`ring-visa` firmware を準備済み SD card に書き込んだ。
 
 ```text
 100% [====================================] 17.21 MB in / 268.44 MB out
 Success!
 ```
 
-Booting `ring-visa` progressed past the previous heart failure and printed the
-Erlang/OTP 29 banner, but then appeared to hang on the device LCD. No USB NCM
-interface appeared on the host, which is expected when the SD boot partition is
-using the host-mode DTB from PR #41/#42.
+`ring-visa` を boot すると、以前の heart failure を越えて Erlang/OTP 29 banner まで進んだが、
+その後 device LCD 上では停止したように見えた。host 側に USB NCM interface は現れなかったが、
+これは PR #41/#42 由来の host-mode DTB を SD boot partition が使っていたため、この時点では想定内だった。
 
-For the next iteration, the app was instrumented with a minimal diagnostic
-launcher:
+次の iteration に向け、application に最小限の diagnostic launcher を追加した。
 
-- `HelloKioskBrain.BootTrace` prints `hello_kiosk:` markers to the console and
-  appends them to `/root/hello_kiosk_boot.log`.
-- `HelloKioskBrain.KioskLauncher` starts the heavy Kiosk display path after the
-  main application supervision tree has come up, so a blocking display/NIF init
-  no longer prevents the rest of the app from starting.
+- `HelloKioskBrain.BootTrace` が `hello_kiosk:` marker を console に出し、
+  `/root/hello_kiosk_boot.log` にも追記する。
+- `HelloKioskBrain.KioskLauncher` が main application supervision tree 起動後に重い Kiosk display path を
+  開始する。これにより display / NIF init が block しても、application の他の部分まで起動できる。
 
-The diagnostic firmware was rebuilt successfully:
+診断用 firmware は正常に再ビルドできた。
 
 ```text
 Firmware UUID: earth-nut (48a0e2c9-346e-55f0-6337-aaf7a02d1dd8)
 ```
 
-For the diagnostic boot, switch the SD boot partition to the peripheral DTB with
-`sd/use_usb_ncm.sh` after writing the `.fw`, so the host can try USB NCM/SSH even
-if the LCD remains at the console banner.
+診断 boot では、`.fw` 書き込み後に `sd/use_usb_ncm.sh` で SD boot partition を peripheral DTB に
+切り替える。LCD が console banner のままでも host 側から USB NCM / SSH を試せるようにするためである。
 
-Booting `earth-nut` confirmed that the release started the application:
+`earth-nut` を boot した結果、release から application が起動していることを確認できた。
 
 ```text
 hello_kiosk: application start
@@ -270,30 +248,27 @@ hello_kiosk: kiosk launcher init ...
 erlinit: Erlang VM exited
 ```
 
-The VM exited before the 3-second delayed Kiosk task marker, which pointed away
-from the display/NIF path. Comparing `rel/vm.args.eex` with upstream
-`circuits_quickstart` showed the missing release option: Elixir's CLI was
-started with `-run elixir start_cli`, but `--no-halt` was not passed after
-`-extra`. On this console, the CLI can finish initialization and allow the VM to
-exit even though the application has just started.
+VM は3秒遅延の Kiosk task marker より前に終了したため、display / NIF path が原因である可能性は低くなった。
+`rel/vm.args.eex` と upstream `circuits_quickstart` を比較したところ、release option が不足していた。
+Elixir CLI は `-run elixir start_cli` で起動していたが、`-extra` の後に `--no-halt` を渡していなかった。
+この console では CLI initialization 完了後、application が起動直後であっても VM が終了できてしまう。
 
-The fix adds the standard Nerves-style keepalive flags:
+修正として、標準 Nerves style の keepalive flag を追加した。
 
 - `+Bc`
 - `-noshell`
 - `-extra --no-halt`
 
-The firmware was rebuilt successfully:
+firmware を再ビルドした。
 
 ```text
 Firmware UUID: skill-toe (c0e67534-715b-587d-a855-d481d89678b2)
 ```
 
-Expanding that `.fw` confirmed `/srv/erlang/releases/0.1.0/vm.args` contains
-`--no-halt`, while the diagnostic modules and System overlay are still present.
+展開した `.fw` の `/srv/erlang/releases/0.1.0/vm.args` に `--no-halt` が含まれること、
+diagnostic module と System overlay が引き続き存在することを確認した。
 
-Booting `skill-toe` on the PW-SH6 succeeded. The device reached the Kiosk home
-screen and showed:
+`skill-toe` を PW-SH6 で boot すると成功し、Kiosk home screen まで到達した。画面では次を確認した。
 
 - model: `PW-SH6`
 - title: `Nerves on Brain`
@@ -306,8 +281,8 @@ screen and showed:
 - memory: `39 / 112 MB`
 - battery: charging, `48%`
 
-This proves the PoC path from a standard Nerves-style app release into the
-existing PW-SH6 boot/rootfs stack:
+これにより、standard Nerves style の application release から既存の PW-SH6 boot/rootfs stack までの
+PoC 経路が成立することを確認した。
 
 ```text
 MIX_TARGET=brain mix firmware
@@ -318,20 +293,18 @@ MIX_TARGET=brain mix firmware
   -> hello_kiosk Brain UI
 ```
 
-The host-side check from the sandbox did not see a USB NCM interface after the
-successful boot, despite the device UI reporting `usb0 10.42.0.2`. Treat that as
-a separate host/cable/USB-enumeration follow-up rather than a blocker for the
-System dependency and firmware packaging PoC.
+この時点の host-side check では、device UI が `usb0 10.42.0.2` を表示していたにもかかわらず、
+USB NCM interface は確認できなかった。これは System dependency / firmware packaging PoC の blocker ではなく、
+host / cable / USB enumeration の別 follow-up として扱う。
 
-After rebooting the device and switching USB mode to HOST from the Kiosk
-`切替` button, the PW-SH6 obtained `192.168.10.103` on the local network.
-Host-side verification from the ThinkPad succeeded:
+device を reboot し、Kiosk の `切替` button から USB mode を HOST に変更すると、PW-SH6 は local network 上で
+`192.168.10.103` を取得した。ThinkPad からの host-side verification は成功した。
 
 ```text
 PING 192.168.10.103: 3 packets transmitted, 3 received, 0% packet loss
 ```
 
-SSH also succeeded with the on-device SSH daemon:
+on-device SSH daemon への SSH 接続も成功した。
 
 ```text
 Interactive Elixir (1.20.2)
@@ -343,38 +316,32 @@ Elixir 1.20.2 / OTP 29
 iex(hello_kiosk_brain@brain)1>
 ```
 
-This confirms that the standard-release PoC supports remote IEx over the
-existing application SSH path when the device is reachable through HOST-mode
-networking. The typed `exit` expression raised a compile error in IEx, but the
-project's `quit` helper cleanly closed the SSH session.
+これにより、device が HOST-mode network で到達可能な場合、standard release PoC でも既存 application SSH
+path 経由で remote IEx を利用できることを確認した。IEx で `exit` と入力すると compile error になったが、
+project の `quit` helper では SSH session を正常に終了できた。
 
-After the successful boot, `hello_kiosk` was reshaped one step closer to the
-standard Nerves application layout:
+成功した boot の後、`hello_kiosk` を standard Nerves application layout にさらに一段近づけた。
 
-- `config/config.exs` now starts `:nerves_bootstrap` and imports `host.exs` or
-  `target.exs`, matching the `circuits_quickstart` and AtomCam2 example shape.
-- Brain-specific firmware config (`config :nerves, :firmware`) lives in
-  `config/target.exs`.
-- `config :shoehorn` metadata is present in target config and the System
-  `erlinit.config` boots `shoehorn.boot`, matching a normal Nerves application.
-- `BootTrace` and the Kiosk launch delay are now controlled by application
-  config so bring-up diagnostics can be disabled without code changes.
-- `examples/hello_kiosk` can select its System dependency source with
-  `BRAIN_SYSTEM_SOURCE`. The default is `local`, matching this branch's
-  trial-and-error workflow. `github` / `release` are wired for future tagged
-  system artifact testing, and `path` allows testing another checkout via
-  `BRAIN_SYSTEM_PATH`.
-- The System `erlinit.config` was moved to `--boot shoehorn`, matching upstream
-  systems and AtomCam2. The resulting firmware was then verified on PW-SH6.
+- `config/config.exs` から `:nerves_bootstrap` を起動し、`host.exs` または `target.exs` を import する形にした。
+  `circuits_quickstart` と AtomCam2 example に近い構成である。
+- Brain 固有の firmware config (`config :nerves, :firmware`) は `config/target.exs` に置く。
+- target config に `config :shoehorn` metadata を置き、System の `erlinit.config` では `shoehorn.boot` を
+  boot する。通常の Nerves application に近い形である。
+- `BootTrace` と Kiosk launch delay は application config で制御し、bring-up diagnostics を code change
+  なしで無効化できるようにした。
+- `examples/hello_kiosk` は `BRAIN_SYSTEM_SOURCE` で System dependency source を切り替えられる。
+  default は `local` とし、この branch の trial-and-error workflow に合わせる。`github` / `release` は
+  将来の tagged System artifact test 用、`path` は `BRAIN_SYSTEM_PATH` で別 checkout を試すためのもの。
+- System の `erlinit.config` を `--boot shoehorn` に変更し、upstream System と AtomCam2 に合わせた。
+  その結果生成した firmware は PW-SH6 実機でも確認した。
 
-### `shoehorn.boot` verified on PW-SH6
+### `shoehorn.boot` の PW-SH6 実機確認
 
-The `zebra-hello` firmware (`fc70a5d0-7b40-5649-ae66-3565d1bfadb2`, SHA-256
-`fddc6db63e92a9021561a0cf54759a15eb82f10d9e2289e0c12689ff25397342`) booted
-on the reference PW-SH6. The KIOSK UI and HOST-mode network came up, and the
-device answered at `192.168.10.103`.
+`zebra-hello` firmware (`fc70a5d0-7b40-5649-ae66-3565d1bfadb2`、SHA-256
+`fddc6db63e92a9021561a0cf54759a15eb82f10d9e2289e0c12689ff25397342`) を reference PW-SH6 で boot した。
+KIOSK UI と HOST-mode network が起動し、device は `192.168.10.103` で応答した。
 
-An OTP SSH direct-exec query returned:
+OTP SSH の direct-exec query では次を確認した。
 
 ```elixir
 %{
@@ -388,77 +355,72 @@ An OTP SSH direct-exec query returned:
 }
 ```
 
-This verifies the actual VM boot argument, rather than inferring shoehorn use
-from files in the firmware image. `--boot shoehorn` is therefore adopted as the
-PoC default. The legacy normal-release fallback remains available through
-erlinit when a release has no `shoehorn.boot` file.
+これは firmware image 内の file 存在から推測したのではなく、実際の VM boot argument を確認したものになる。
+そのため `--boot shoehorn` を PoC の default として採用する。release に `shoehorn.boot` がない場合の
+legacy normal-release fallback は `erlinit` 側に残す。
 
-### Repository-root OTP pin
+### repository root の OTP version 固定
 
-Running the standard Nerves tasks directly from the System repository exposed
-that the root inherited host OTP 28 while the reusable target System contains
-OTP 29. Nerves rejected the environment because host and target OTP major
-versions differed. The repository root now has the same `.tool-versions` pin as
-`examples/hello_kiosk` (`erlang 29.0.5`, `elixir 1.20.2-otp-29`) and a root
-`mix.lock`. This makes root-level System package and artifact operations use the
-same BEAM format contract as the application and target.
+standard Nerves task を System repository root から直接実行すると、root 側は host OTP 28 を継承し、
+再利用する target System 側は OTP 29 という不一致が表面化した。host と target の OTP major version が
+異なるため、Nerves が environment を拒否した。
 
-### Portable System artifact generated and consumed
+repository root に `examples/hello_kiosk` と同じ `.tool-versions`
+(`erlang 29.0.5`, `elixir 1.20.2-otp-29`) と root `mix.lock` を追加した。これにより root-level の
+System package / artifact operation でも application / target と同じ BEAM format contract を使用する。
 
-The first root-level `mix nerves.artifact` attempt exposed a second adapter
-boundary: `archive/3` delegated to `Nerves.System.BR`, which expected a normal
-Buildroot tree under `.nerves/artifacts/...`, while the reusable adapter had
-materialized `.nerves/reusable-system-artifact` instead.
+### portable System artifact の生成と利用
 
-`NervesSystemBrain.Platform.archive/3` now follows the standard
-`nerves_system_br` system archive shape:
+最初に root で `mix nerves.artifact` を実行すると、adapter boundary がもう1つ見つかった。
+`archive/3` が `Nerves.System.BR` へ delegate していたため、通常の Buildroot tree を
+`.nerves/artifacts/...` 以下に期待していた。一方、再利用 adapter は
+`.nerves/reusable-system-artifact` を materialize していた。
 
-- copy the real target sysroot into `staging/`, following only the top-level
-  `o/staging` link and retaining links inside the sysroot;
-- include `images/` and the common Nerves environment/scripts;
-- overlay Brain's `rel2fw.sh`, `fwup.conf`, and `rootfs_overlay`;
-- omit `o/host`, since a System artifact must not bundle its host toolchain.
+`NervesSystemBrain.Platform.archive/3` は、standard `nerves_system_br` System archive の形に合わせて
+次を行うようにした。
 
-The standard task produced:
+- 実際の target sysroot を `staging/` にコピーする。top-level の `o/staging` link だけを follow し、
+  sysroot 内部の symlink は保持する。
+- `images/` と共通 Nerves environment / scripts を含める。
+- Brain の `rel2fw.sh`、`fwup.conf`、`rootfs_overlay` を overlay する。
+- System artifact に host toolchain を含めないため、`o/host` は除外する。
+
+standard task により次を生成した。
 
 ```text
 nerves_system_brain-portable-0.1.0-791B5D1.tar.gz  90 MiB
 ```
 
-The archive was extracted under `/tmp`, outside this checkout. With
-`NERVES_SYSTEM` set to that extracted directory, `hello_kiosk` completed both a
-forced ARM target compile and `MIX_ENV=prod mix firmware`. The firmware build
-explicitly copied the System overlay from the extracted artifact and produced
-firmware nickname `emotion-nasty` (`548e7b25-b567-519e-2e41-a636838c2d1d`).
+archive をこの checkout 外の `/tmp` に展開した。`NERVES_SYSTEM` をその展開先へ設定した状態で、
+`hello_kiosk` の forced ARM target compile と `MIX_ENV=prod mix firmware` が完了した。
+firmware build log では展開済み artifact から System overlay を copy し、firmware nickname
+`emotion-nasty` (`548e7b25-b567-519e-2e41-a636838c2d1d`) を生成した。
 
-This proves the System artifact is portable. At this point the cached
-`nerves_toolchain_brain` was still a link to this checkout's `o/host`, which
-motivated the next experiment.
+これにより System artifact 自体が portable であることを確認した。この時点では cached
+`nerves_toolchain_brain` がこの checkout の `o/host` を参照する link のままだったため、次の実験を行った。
 
-### Toolchain artifact generated and consumed
+### toolchain artifact の生成と利用
 
-`NervesToolchainBrain.archive/3` now packages the complete reusable `o/host`
-tree as a host-specific standard Nerves `.tar.xz`. Its archive root is
-`nerves_toolchain_brain/`, symlinks are preserved, and `VERSION` is included as
-`nerves-toolchain.tag` without modifying the Buildroot output.
+`NervesToolchainBrain.archive/3` は、再利用する `o/host` tree 全体を host-specific な standard Nerves
+`.tar.xz` として package する。archive root は `nerves_toolchain_brain/`、symlink は保持し、Buildroot
+output を変更せずに `VERSION` を `nerves-toolchain.tag` として含める。
 
-The standard task produced:
+standard task により次を生成した。
 
 ```text
 nerves_toolchain_brain-linux_x86_64-0.1.0-380F8C4.tar.xz  197 MiB
 SHA-256 2a7a525b8302833d69d2dc8f48f9a88ff68e30fa28be203582334da2aaab358f
 ```
 
-After extraction under `/tmp`, the relocated compiler reported:
+`/tmp` に展開した toolchain の compiler は、移動後の path から次を返した。
 
 ```text
 arm-linux-gcc.br_real (Buildroot 2021.11-18033-g83947c7bb6) 14.3.0
 arm-buildroot-linux-gnueabi
 ```
 
-The previously generated NIF and `devmem` outputs were removed before the
-consumer test. With both `NERVES_SYSTEM` and `NERVES_TOOLCHAIN` pointing to
-their extracted `/tmp` artifacts, the build log showed:
+consumer test の前に、以前生成した NIF と `devmem` output を削除した。`NERVES_SYSTEM` と
+`NERVES_TOOLCHAIN` をそれぞれ `/tmp` に展開した artifact へ向けると、build log には次が出た。
 
 ```text
 /tmp/nerves-toolchain-brain-consumer/nerves_toolchain_brain/bin/arm-linux-g++
@@ -467,28 +429,25 @@ their extracted `/tmp` artifacts, the build log showed:
   -marm -mcpu=arm926ej-s -mfloat-abi=soft
 ```
 
-The NIF and static helper rebuilt, and `mix firmware` produced `dynamic-labor`
-(`4f7a7ade-89c9-560e-10aa-6b3921e7e649`). This verifies standard Nerves
-cross-compilation without using the repository's `o/host` or `o/staging` paths.
+NIF と static helper は再ビルドされ、`mix firmware` は `dynamic-labor`
+(`4f7a7ade-89c9-560e-10aa-6b3921e7e649`) を生成した。これにより repository の `o/host` / `o/staging`
+path を使わず、standard Nerves cross-compilation が成立することを確認した。
 
-Because `toolchain/` participates in the System package checksum, the final
-System artifact name became
+`toolchain/` も System package checksum に含まれるため、最終 System artifact 名は
 `nerves_system_brain-portable-0.1.0-E7EEC96.tar.gz` (SHA-256
-`2022f564fb774dd0923f39a614f335f76844f4ea6001f0490b1ebc1db515e86d`). Its
-contents were compared with the consumed artifact and were identical.
+`2022f564fb774dd0923f39a614f335f76844f4ea6001f0490b1ebc1db515e86d`) になった。
+その内容を実際に利用した artifact と比較し、同一であることを確認した。
 
-### Standard artifact resolution verified
+### standard artifact resolution の確認
 
-An initial isolated-cache test with `BRAIN_SYSTEM_SOURCE=local` did not consume
-the archives. This is expected: that development mode specifies
-`nerves: [compile: true]`, so Nerves rebuilt the local packages and cached links
-to `.nerves/reusable-system-artifact` and `o/host`.
+最初に isolated cache で `BRAIN_SYSTEM_SOURCE=local` を試したところ、archive は利用されなかった。
+これは想定どおりである。この development mode は `nerves: [compile: true]` を指定するため、Nerves は
+local package を再ビルドし、`.nerves/reusable-system-artifact` と `o/host` への link を cache する。
 
-A throwaway Nerves application was then created outside the repository with the
-same local System package source but without `compile: true`, matching the
-artifact behavior of a tagged dependency. With empty `NERVES_ARTIFACTS_DIR`, no
-`NERVES_SYSTEM` / `NERVES_TOOLCHAIN` overrides, and an isolated
-`NERVES_DL_DIR`, `mix deps.get` reported:
+そこで repository 外に使い捨ての Nerves application を作り、同じ local System package source を
+使いつつ `compile: true` は付けなかった。tagged dependency の artifact behavior に相当する構成である。
+空の `NERVES_ARTIFACTS_DIR`、`NERVES_SYSTEM` / `NERVES_TOOLCHAIN` override なし、isolated
+`NERVES_DL_DIR` の状態で `mix deps.get` を実行すると次の結果になった。
 
 ```text
 Checking for prebuilt Nerves artifacts...
@@ -500,83 +459,73 @@ Checking for prebuilt Nerves artifacts...
   => Success
 ```
 
-The isolated artifact cache contained real extracted directories rather than
-links to this repository, and `MIX_TARGET=brain mix compile` succeeded. This
-proves the archive names, roots, checksums, extraction, and normal Nerves
-resolver path. GitHub release publication remains the missing remote step.
+isolated artifact cache には、この repository への link ではなく、実体のある展開済み directory が入った。
+`MIX_TARGET=brain mix compile` も成功した。これにより archive name、root、checksum、extract、通常の
+Nerves resolver path を確認できた。未実施なのは GitHub release への公開だけである。
 
-### Standard `mix firmware.burn` task verified
+### standard `mix firmware.burn` task の確認
 
-The standard task was tested without risking physical media:
+physical media を壊すリスクを避けるため、standard task を disk image に対して確認した。
 
 ```sh
 MIX_ENV=prod MIX_TARGET=brain mix firmware.burn \
   --device /tmp/hello_kiosk_brain-burn-test.img --task complete -y
 ```
 
-It rebuilt firmware `pig-abandon` (`b904b08d-d8e1-5a87-000b-3dd24f59e84a`)
-and completed the fwup write. The resulting 321 MiB image had the intended MBR:
+firmware `pig-abandon` (`b904b08d-d8e1-5a87-000b-3dd24f59e84a`) を再ビルドし、fwup write まで
+完了した。生成された 321 MiB image は想定した MBR を持っていた。
 
 ```text
 partition 1: start 2048,   131072 sectors, 64 MiB, FAT32 LBA, bootable
 partition 2: start 133120, 524288 sectors, 256 MiB, Linux
 ```
 
-This verifies that System dependency use, firmware generation, `fwup`, and the
-standard burn task can all be adopted without introducing A/B slots. It does
-not make blank media bootable: the current `complete` task creates/preserves the
-p1 layout but does not package brain-hackers boot files. A pre-provisioned p1
-remains a prerequisite until redistribution and blank-media policy are decided.
+これにより System dependency、firmware generation、`fwup`、standard burn task は、A/B slot を導入せず
+採用できることを確認した。ただしこの時点の `complete` task は p1 layout を作成・維持するものの、
+brain-hackers boot file を package していなかったため、blank media を単独で bootable にはできなかった。
+blank-media policy が決まるまでは、pre-provisioned p1 が前提だった。
 
-Warnings still present in the application compile are unrelated to the Nerves
-System packaging PoC:
+application compile に残っていた warning は Nerves System packaging PoC とは無関係だった。
 
-- duplicate `touch_btn/2` clauses in `HelloKioskBrain.Input`
-- bitstring size pinning warnings in `HelloKioskBrain.Fb.stamp/4`
-- unused `@battmon` in `HelloKioskBrain.Battery`
-- `HelloKioskBrain.Display` calling `HelloKioskBrain.Fb.open/0`, which is not
-  currently defined. `Display` is not currently supervised; the running kiosk
-  path uses `HelloKioskBrain.Kiosk`.
+- `HelloKioskBrain.Input` の `touch_btn/2` clause が連続していない warning
+- `HelloKioskBrain.Fb.stamp/4` の bitstring size variable pinning warning
+- `HelloKioskBrain.Battery` の未使用 `@battmon`
+- `HelloKioskBrain.Display` が未定義の `HelloKioskBrain.Fb.open/0` を呼ぶ warning。
+  `Display` は現在 supervise されておらず、実際に動いている Kiosk path は `HelloKioskBrain.Kiosk` を使う。
 
-### Standard target IEx dependencies
+### target IEx の標準 dependency
 
-The example application now follows the minimal setup used by regular Nerves
-examples:
+example application を、通常の Nerves example が使う最小構成に合わせた。
 
-- `:nerves_runtime` is a target dependency and a shoehorn init application.
-- `:nerves_motd` prints the target summary from `priv/iex.exs`.
-- `:toolshed` is imported from `priv/iex.exs`.
-- project-specific IEx helpers remain imported after the standard helpers.
+- `:nerves_runtime` を target dependency と shoehorn init application にする。
+- `:nerves_motd` が `priv/iex.exs` から target summary を表示する。
+- `:toolshed` を `priv/iex.exs` から import する。
+- project 固有 IEx helper は standard helper の後に import する。
 
-Adding `nerves_runtime` exposed one System responsibility that the standalone
-application had not needed: `nerves_uevent` links against `libmnl`. The first
-target compile failed on a missing `libmnl/libmnl.h`. Adding
-`BR2_PACKAGE_LIBMNL=y` to `nerves_defconfig` placed the header and library in the
-System sysroot and the shared library in the target rootfs. After rebuilding the
-System output, the standard application command compiled all dependencies and
-the native uevent helper for ARMv5:
+`nerves_runtime` の追加により、standalone application では不要だった System responsibility が1つ見つかった。
+`nerves_uevent` は `libmnl` に link するため、最初の target compile は `libmnl/libmnl.h` 不足で失敗した。
+`BR2_PACKAGE_LIBMNL=y` を `nerves_defconfig` に追加すると header / library が System sysroot に入り、
+shared library も target rootfs に配置された。System output を再ビルドした後、standard application command で
+全 dependency と ARMv5 向け native uevent helper の compile が成功した。
 
 ```sh
 MIX_TARGET=brain BRAIN_SYSTEM_SOURCE=local mise exec -- mix compile
 ```
 
-The production release for firmware `sphere-laptop` contains
-`nerves_runtime 0.13.13`, `nerves_motd 0.1.17`, `toolshed 0.5.0`, and
-`nerves_uevent 0.1.7`. Host tests pass (4 tests); their expected warning about
-loading the ARM32 kiosk NIF on x86_64 remains unchanged. Device verification of
-the new runtime initialization and IEx startup is the next step.
+`sphere-laptop` firmware の production release には `nerves_runtime 0.13.13`、`nerves_motd 0.1.17`、
+`toolshed 0.5.0`、`nerves_uevent 0.1.7` が含まれる。host test は4件すべて pass した。x86_64 上で
+ARM32 kiosk NIF を load できないことによる想定内 warning は残る。新しい runtime initialization と
+IEx startup の device verification が次の確認項目だった。
 
-### `mix upload` is not safe on the current single-root layout
+### 現在の single-root layout では `mix upload` は安全ではない
 
-The current application does not provide a `mix upload` task. That task normally
-comes from `ssh_subsystem_fwup`, commonly through `nerves_ssh`, and sends the
-firmware to an SSH subsystem named `fwup`. The Brain application's custom SSH
-daemon currently exposes only SFTP.
+現在の application には `mix upload` task がない。この task は通常 `ssh_subsystem_fwup` から、一般には
+`nerves_ssh` 経由で提供され、firmware を `fwup` という SSH subsystem に送る。Brain application の
+custom SSH daemon は当時 SFTP だけを公開していた。
 
-Adding the task and subsystem is straightforward, but enabling them would not
-make updates safe. The standard subsystem invokes target `fwup` with
-`--no-unmount` and the firmware `upgrade` task. On the reference PW-SH6, a
-read-only SSH inspection confirmed:
+task と subsystem を追加すること自体は容易だが、それだけでは update が安全にはならない。standard
+subsystem は target 側の `fwup` を `--no-unmount` と firmware の `upgrade` task で実行する。
+reference PW-SH6 を read-only SSH で調べると次を確認した。
 
 ```text
 kernel command line: root=/dev/mmcblk1p2 rw rootwait
@@ -584,42 +533,37 @@ root mount:          /dev/root / ext4 rw
 target fwup:         /usr/bin/fwup
 ```
 
-The current `complete` task writes a complete ext4 image over p2 and requires an
-unmounted destination. The current `upgrade` task intentionally returns an
-error. Reusing `complete` remotely would overwrite the mounted root filesystem
-from which Erlang and `fwup` are executing.
+現在の `complete` task は p2 全体へ ext4 image を書き込み、destination が unmount されていることを前提とする。
+`upgrade` task は意図的に error を返す。`complete` を remote から再利用すると、Erlang と `fwup` 自身が
+実行中の mounted root filesystem を上書きすることになる。
 
-Therefore `mix upload` remains a storage/update follow-up, independent from the
-now-working standard application compile and firmware build flow. A safe design
-must first provide either an A/B rootfs with boot selection/rollback, or a
-recovery/staging environment that applies the p2 image while p2 is unmounted.
-An SFTP-based application-release replacement could be built separately, but it
-would not be the standard Nerves `mix upload` firmware protocol.
+そのため `mix upload` は、現在動作している standard application compile / firmware build flow とは独立した
+storage / update の follow-up とする。安全な設計には、boot selection / rollback を持つ A/B rootfs か、
+p2 を unmount した状態で image を適用する recovery / staging environment が必要である。
+SFTP で application release だけを置換する方式は別途作れるが、standard Nerves の `mix upload` firmware
+protocol とは異なる。
 
-### System dependency is feasible
+### System dependency 化は可能
 
-`nerves_system_brain` can be shaped as a normal Nerves system package without
-changing `nerves_defconfig`, `Config.in`, or `rootfs_overlay` in the first
-stage. The key is that the package surface and the platform boot/storage choices
-are separable.
+`nerves_system_brain` は、最初の段階では `nerves_defconfig`、`Config.in`、`rootfs_overlay` を変更せずに
+通常の Nerves System package に近い形へできる。package surface と platform 固有の boot/storage choice は
+分離できることが重要である。
 
-The current reusable Buildroot output has the directories expected by
-`nerves_system_br`:
+現在再利用している Buildroot output には `nerves_system_br` が期待する directory が存在する。
 
 - `o/host`
 - `o/staging`
 - `o/images`
 
-`nerves_system_br`'s environment setup can use this directly as a local provider
-because it finds the toolchain in `host` and the sysroot/ERTS headers in
-`staging`.
+`nerves_system_br` の environment setup は、toolchain を `host`、sysroot / ERTS header を `staging` から
+見つけられるため、この構成をそのまま local provider として利用できる。
 
-### ARMv5 / Bootlin toolchain can be exposed
+### ARMv5 / Bootlin toolchain は Nerves interface から提供できる
 
-For local development, the existing Bootlin toolchain can be reused from
-`o/host`. The expected Nerves cross-compile variables map cleanly:
+local development では既存 Bootlin toolchain を `o/host` から再利用できる。想定する Nerves
+cross-compile variable は次のように対応する。
 
-| Variable | Proposed value |
+| 変数 | 想定値 |
 | --- | --- |
 | `TARGET_ARCH` | `arm` |
 | `TARGET_CPU` | `arm926ej_s` |
@@ -627,111 +571,93 @@ For local development, the existing Bootlin toolchain can be reused from
 | `TARGET_ABI` | `gnueabi` |
 | `TARGET_GCC_FLAGS` | `-marm -mcpu=arm926ej-s -mfloat-abi=soft` |
 
-The value that should be verified most carefully is `TARGET_CPU`. Buildroot
-selects `BR2_arm926t`; GCC accepts `-mcpu=arm926ej-s`, which better matches the
-i.MX283 core family. If this causes any compiler/package regression, fall back
-to the simpler Buildroot-selected defaults and keep CPU detail as metadata only.
+特に慎重に確認すべき値は `TARGET_CPU` である。Buildroot は `BR2_arm926t` を選択する一方、GCC は
+i.MX283 core family により近い `-mcpu=arm926ej-s` を受け付ける。この指定が compiler / package regression を
+起こす場合は、より単純な Buildroot-selected default に戻し、CPU detail は metadata だけに残す。
 
-Publishing a dedicated `nerves_toolchain_brain` artifact is still desirable for
-release use. It removes the need for application developers to have a full
-Buildroot output tree locally.
+release use では dedicated `nerves_toolchain_brain` artifact を公開することが望ましい。これにより application
+developer が full Buildroot output tree を local に持つ必要がなくなる。
 
-### Native code can move toward Nerves cross compilation
+### native code は Nerves cross compilation に寄せられる
 
-The existing `examples/hello_kiosk/Makefile` already has the right general
-contract:
+既存の `examples/hello_kiosk/Makefile` は、全体として適切な contract を持っている。
 
-- `CC` / `CXX` can be supplied by the environment.
-- `ERTS_INCLUDE_DIR` can be supplied by the environment.
-- `MIX_APP_PATH` controls where `priv/` artifacts are written.
+- `CC` / `CXX` を environment から渡せる。
+- `ERTS_INCLUDE_DIR` を environment から渡せる。
+- `MIX_APP_PATH` で `priv/` artifact の出力先を制御できる。
 
-That aligns well with Nerves plus `elixir_make`. The application no longer needs
-to discover `o/host/bin/arm-linux-g++` itself once the Nerves environment is
-loaded.
+これは Nerves + `elixir_make` と相性がよい。Nerves environment が読み込まれれば、application 自身が
+`o/host/bin/arm-linux-g++` を探索する必要はなくなる。
 
-### `mix compile` and `fwup` are separable
+### `mix compile` と `fwup` は分離して検証できる
 
-Using `nerves_system_brain` as a dependency and compiling target-specific native
-code does not require `fwup`. `fwup` becomes necessary when producing or burning
-a Nerves firmware artifact.
+`nerves_system_brain` を dependency として利用し target-specific native code を compile するだけなら、
+`fwup` は不要である。Nerves firmware artifact を生成または burn するときに `fwup` が必要になる。
 
-The first firmware-generation step is now proven without changing the storage
-layout:
+storage layout を変えずに最初の firmware generation step が成立することは確認できた。
 
-- `fwup.conf` models the existing FAT p1 + Linux p2 layout.
-- `scripts/rel2fw.sh` keeps the Nerves firmware task interface but creates an
-  ext4 image from `rootfs.tar`, the target release, and generated rootfs
-  overlays instead of using the stock squashfs merge.
-- The `complete` task writes p2 and preserves the same partition offsets. It
-  assumes p1 already contains the brain-hackers boot files; it is not yet a
-  from-blank-SD replacement for the current base-image workflow.
+- `fwup.conf` は既存の FAT p1 + Linux p2 layout を表現する。
+- `scripts/rel2fw.sh` は Nerves firmware task interface を保ちながら、stock squashfs merge の代わりに
+  `rootfs.tar`、target release、generated rootfs overlay から ext4 image を作る。
+- `complete` task は p2 を書き込み、同じ partition offset を維持する。この時点では p1 に
+  brain-hackers boot file が既にあることを前提としており、blank SD を一から作る既存 base-image workflow の
+  replacement ではなかった。
 
-This means the migration can be staged:
+このため migration は段階的に進められる。
 
-1. Make `MIX_TARGET=brain mix compile` work using the existing `o/` output. Done
-   in this PoC.
-2. Make a release with `Nerves.Release.erts/0`. Done in this PoC.
-3. Build an ext4-rootfs `.fw` for the current p2 layout. Done in this PoC.
-4. Device-test the `.fw` against an SD card that already has the known-good p1
-   boot files. Done with `skill-toe` on PW-SH6.
-5. Use `mix firmware.burn` with the current `complete` task for pre-provisioned
-   media; blank-media boot files, A/B slots, and update architecture remain
-   independent follow-ups.
+1. 既存 `o/` output を使って `MIX_TARGET=brain mix compile` を成立させる。PoC で完了。
+2. `Nerves.Release.erts/0` で release を作る。PoC で完了。
+3. 現在の p2 layout 向け ext4-rootfs `.fw` を作る。PoC で完了。
+4. known-good p1 boot file を持つ SD card で `.fw` を device test する。PW-SH6 の `skill-toe` で完了。
+5. 現在の `complete` task で pre-provisioned media に `mix firmware.burn` を使う。blank-media boot file、
+   A/B slot、update architecture は独立した follow-up とする。
 
-### PW-SH6-specific pieces should remain below the system interface
+### PW-SH6 固有部分は System interface より下に残す
 
-Do not standardize away:
+標準化のために削除しないもの:
 
-- brain-hackers U-Boot and kernel assets.
-- FAT p1 + ext4 p2 storage during the first stage.
-- ARMv5 soft-float constraints.
-- display/input initialization and device-specific kernel interfaces.
-- the current manual SD deployment scripts while `fwup` is still experimental.
+- brain-hackers の U-Boot / kernel asset。
+- 最初の段階では FAT p1 + ext4 p2 storage layout。
+- ARMv5 soft-float constraint。
+- display / input initialization と device-specific kernel interface。
+- `fwup` が experimental な間の manual SD deployment script。
 
-## Follow-up Issues
+## 今後の課題
 
-- Publish the consume-tested `nerves_toolchain_brain` and `nerves_system_brain`
-  artifacts in a tagged GitHub release, then verify
-  `BRAIN_SYSTEM_SOURCE=github MIX_TARGET=brain mix deps.get`.
-- Decide whether `TARGET_CPU` should be `arm926ej_s`, `arm926t`, or omitted from
-  compiler flags after native package testing.
-- Decide whether the Brain app should keep the diagnostic `BootTrace` /
-  `KioskLauncher` scaffolding, replace it with normal supervision, or gate it
-  behind a bring-up config flag.
-- Investigate USB NCM host enumeration if peripheral-mode USB development is
-  still needed; HOST-mode LAN networking and SSH/IEx are verified.
-- Add a blank-media story for `mix firmware.burn`, either by packaging the p1
-  boot files when redistribution is acceptable or by documenting a base-image
-  prerequisite.
-- Revisit ADR 0005 after PoC verification and split accepted changes into
-  smaller implementation issues.
+- consume-test 済みの `nerves_toolchain_brain` と `nerves_system_brain` artifact を tagged GitHub release に
+  publish し、`BRAIN_SYSTEM_SOURCE=github MIX_TARGET=brain mix deps.get` を確認する。
+- native package test 後、`TARGET_CPU` を `arm926ej_s`、`arm926t`、または compiler flag から省略するか決める。
+- Brain app に diagnostic `BootTrace` / `KioskLauncher` scaffolding を残すか、normal supervision に戻すか、
+  bring-up config flag で gate するか決める。
+- peripheral-mode USB development が引き続き必要なら USB NCM host enumeration を調査する。
+  HOST-mode LAN networking と SSH/IEx は確認済み。
+- `mix firmware.burn` の blank-media path を用意する。boot file 再配布が可能なら p1 asset を package し、
+  そうでなければ base-image prerequisite を文書化する。
+- PoC verification 後に ADR 0005 を再確認し、採用する変更をより小さい implementation issue に分割する。
 
-## 2026-09-21: Blank-SD provisioning and A/B investigation
+## 2026-09-21: blank SD provisioning と A/B 調査
 
-The fixed buildbrain release is `2026-03-25-024518`. Its small release assets
-are sufficient for the direct-SD boot path; downloading the 685 MiB base SD
-image is not necessary. The required files are:
+固定して使用する buildbrain release は `2026-03-25-024518` とした。direct-SD boot path には release の
+小さい asset だけで十分であり、685 MiB の base SD image を download する必要はない。必要な file は次のとおり。
 
-| File | Archive | SHA-256 checked archive |
+| ファイル | アーカイブ | SHA-256 確認済みアーカイブ |
 | --- | --- | --- |
 | `edsh6exe.bin` | `uboot-sh6-2026-03-25-024518.zip` | `a07b43ade594b566ed189bcfc5e49212006679600ca30e2fb7468961ef664f95` |
 | `zImage` | `linux-2026-03-25-024518.zip` | `da7a8f87c6daf982085c2f7042d874654645a28a6318558d3c6ea0e6a2851f69` |
-| `imx28-pwsh6.dtb` | `linux-2026-03-25-024518.zip` | same as above |
+| `imx28-pwsh6.dtb` | `linux-2026-03-25-024518.zip` | 同上 |
 
-`scripts/fetch_boot_assets.sh` verifies and extracts these files. `fwup.conf`
-now formats p1 as FAT32, labels it `boot`, writes the three files, and writes the
-generated ext4 release image to p2. A complete firmware was expanded to a raw
-image and inspected without physical media:
+`scripts/fetch_boot_assets.sh` でこれらを検証して展開する。`fwup.conf` は p1 を FAT32 で format し、label を
+`boot` に設定して3ファイルを書き込み、p2 に生成済み ext4 release image を書くようにした。
+complete firmware を raw image に展開して physical media を使わず確認した。
 
 ```text
 p1: FAT32 BOOT, edsh6exe.bin, zImage, imx28-pwsh6.dtb
 p2: ext4, /srv/erlang/releases/0.1.0/shoehorn.boot
 ```
 
-The fixed U-Boot source revision is `e8fc0d0cf39d9cd06245ef1777d1cf54258e5cb6`.
-Its `brain_mx28_common.h` loads `uEnv.txt` from p1 and imports it before
-`bootcmd`; `sdroot` can therefore select `/dev/mmcblk1p2` or p3. It has no
-bootcount, slot validation, rollback, or inactive-slot updater. Merely adding
-a p3 partition would make remote updates less safe, not more safe. ADR 0007
-therefore keeps the legacy scripts as recovery tooling and defers A/B/mix-upload
-until boot selection and rollback are designed and tested together.
+固定 U-Boot source revision は `e8fc0d0cf39d9cd06245ef1777d1cf54258e5cb6`。
+`brain_mx28_common.h` は p1 から `uEnv.txt` を読み込み、`bootcmd` より前に import するため、`sdroot` で
+`/dev/mmcblk1p2` または p3 を選択できる。一方で bootcount、slot validation、rollback、inactive-slot updater は
+提供されていない。単に p3 partition を追加するだけでは remote update はむしろ安全でなくなる。
+そのため ADR 0007 では legacy script を recovery tooling として残し、A/B / `mix upload` は boot selection と
+rollback を一体で設計・実機検証するまで保留とした。

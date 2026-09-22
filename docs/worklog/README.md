@@ -1,9 +1,8 @@
-# Worklog
+# 作業記録
 
-This directory records investigation notes and implementation logs that are too
-detailed for ADRs.
+このディレクトリには、ADR に含めるには詳細すぎる調査メモや実装記録を残す。
 
-| Date | Topic |
+| 日付 | テーマ |
 | --- | --- |
-| [2026-09-20](20260920-nerves-standard-flow-investigation.md) | Nerves standard development flow investigation |
-| [2026-09-22](20260922-usb-ncm-real-device-verification.md) | USB NCM / VintageNetDirect / NervesSSH real-device verification |
+| [2026-09-20](20260920-nerves-standard-flow-investigation.md) | Nerves 標準開発フローへの移行可能性調査 |
+| [2026-09-22](20260922-usb-ncm-real-device-verification.md) | USB NCM / VintageNetDirect / NervesSSH の実機検証 |
