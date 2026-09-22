@@ -26,6 +26,9 @@ blank SD の初回 provisioning と A/B update を別段階で扱う。
 - これらの third-party binary は source repository に commit しない。取得スクリプトと source URL、
   release tag、SHA-256 を管理する。
 - p2 の ext4 rootfs/release を含む single-root layout は、初回 flash 用として維持する。
+- p1 より前の未使用領域の sector 16-31（8 KiB）を、`Nerves.Runtime` が読む標準的な
+  U-Boot-format firmware metadata store として使う。これは PW-SH6 の bootloader environment
+  とは独立しており、boot selection には使わない。
 - A/B rootfs、p1 の boot selector、health confirmation、rollback、remote updater は一体として
   別設計・別実機検証にする。現時点で `mix upload` を有効化しない。
 - `sd/populate_sd.sh` と `sd/deploy_release.sh` は legacy/recovery path として当面残す。blank SD
@@ -44,6 +47,10 @@ blank SD の初回 provisioning と A/B update を別段階で扱う。
 - source checkout からの `mix firmware` の初回実行には `curl`、`unzip`、`sha256sum` が必要になる。
   取得済み assets は System の `boot/` directory に再利用される。fetch 後に作った portable
   System artifact には bundle が含まれるため、その consumer は再取得しない。
+- `complete` は firmware metadata store に product/version/UUID/platform/architecture/validation status を
+  記録するため、`Nerves.Runtime.KV` と `NervesMOTD` から通常の Nerves firmware 情報を取得できる。
+- metadata store を持たない既存 SD は引き続き起動できるが、標準 firmware 情報は `complete` で
+  再作成するまで取得できない。
 - `complete` は p1 を作り直すため、既存 p1 の任意ファイルは保持しない。USB peripheral DTB は
   初回 flash 後に `sd/use_usb_ncm.sh` または application で切り替える。
 - manual deployment scripts は標準 workflow の必須要素ではなくなるが、移行期間の保険として残る。

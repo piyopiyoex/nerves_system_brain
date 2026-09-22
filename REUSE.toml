@@ -15,6 +15,7 @@ path = [
   "examples/hello_kiosk/rootfs_overlay/etc/iex.exs",
   "nerves_defconfig",
   "rootfs_overlay/etc/erlinit.config",
+  "rootfs_overlay/etc/fw_env.config",
   "toolchain/.formatter.exs"
 ]
 precedence = "aggregate"
