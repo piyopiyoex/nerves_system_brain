@@ -12,6 +12,7 @@ path = [
   "examples/hello_kiosk/.gitignore",
   "examples/hello_kiosk/.tool-versions",
   "examples/hello_kiosk/mise.toml",
+  "examples/hello_kiosk/config/logo.txt",
   "examples/hello_kiosk/rootfs_overlay/etc/iex.exs",
   "nerves_defconfig",
   "rootfs_overlay/etc/erlinit.config",
