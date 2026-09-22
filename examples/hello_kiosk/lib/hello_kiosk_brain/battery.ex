@@ -13,7 +13,6 @@ defmodule HelloKioskBrain.Battery do
   use GenServer
 
   @sts 0x800440C0
-  @battmon 0x80044054
   @poll_ms 5_000
 
   # 電池ログ: @poll_ms 毎の読取りのうち @log_every 回に 1 回、/root/battery.log へ

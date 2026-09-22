@@ -93,13 +93,13 @@ defmodule HelloKioskBrain.Input do
     %{state | down: false}
   end
 
+  defp touch_btn(state, _), do: state
+
   # Map a raw ADC value in [lo, hi] to [0, out], clamped.
   defp map_axis(raw, lo, hi, out) do
     v = div((raw - lo) * out, hi - lo)
     v |> max(0) |> min(out)
   end
-
-  defp touch_btn(state, _), do: state
 
   defp notify(%{sub: pid}, msg) when is_pid(pid), do: send(pid, msg)
   defp notify(_, _), do: :ok
