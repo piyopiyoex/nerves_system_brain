@@ -7,7 +7,7 @@
 接続方法は次の2通りを想定する。
 
 - **USB 直接接続**: Linux PC と PW-SH6 を microUSB ケーブルで接続し、USB-NCM を使う。
-- **Ethernet**: PW-SH6 を USB host 構成のまま使い、USB Ethernet adapter から LAN に接続する。
+- **有線 LAN**: PW-SH6 を USB host 構成のまま使い、USB Ethernet adapter から LAN に接続する。
 
 > **注意**: microSD への書き込みでは、指定したデバイスの内容を消去する。
 > 書き込み先を必ず確認すること。本体 eMMC には書き込まない。
@@ -24,7 +24,7 @@
 
 USB 直接接続では、**データ通信対応**の microUSB ケーブルも用意する。
 
-Ethernet 接続では、USB host 用の powered USB hub、USB Ethernet adapter、LAN 環境を用意する。
+有線 LAN 接続では、USB host 用の powered USB hub、USB Ethernet adapter、LAN 環境を用意する。
 
 ## 2. System をビルドする
 
@@ -43,7 +43,7 @@ make -C o
 
 初回は OTP 29 の ARMv5 クロスビルドを含むため時間がかかる。
 
-System / toolchain artifact を確認するときは、Buildroot 完了後に repository root で実行できる。
+System / toolchain artifact を確認するときは、Buildroot 完了後にリポジトリルートで実行できる。
 
 ```sh
 mise trust
@@ -87,7 +87,7 @@ authorized key として取り込む。公開鍵がない場合も、PW-SH6 で�
 lsblk -o NAME,PATH,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINTS,MODEL
 ```
 
-対象が microSD であることを確認したら、通常の Nerves workflow と同じように firmware を書き込む。
+対象が microSD であることを確認したら、通常の Nerves 開発フローと同じように firmware を書き込む。
 
 ```sh
 mise exec -- mix burn
@@ -95,30 +95,45 @@ mise exec -- mix burn
 
 表示された候補から microSD を選ぶ。
 
-`mix burn` の `complete` task は毎回 boot partition に host 用 `imx28-pwsh6.dtb` を配置する。
-USB-NCM を使う場合は、burn のたびに次節の `sd/use_usb_ncm.sh` を再実行する。
-
 `complete` task は blank SD に MBR、FAT boot partition、ext4 rootfs partition を作成し、boot loader、
 kernel、Device Tree、application release をまとめて配置する。
+
+`mix burn` が配置する `imx28-pwsh6.dtb` は **USB host 構成**である。有線 LAN を使う場合は
+そのまま起動できる。USB-NCM で Linux PC と直接接続する場合だけ、次節の helper で peripheral 構成へ
+切り替える。`mix burn` をやり直すと host 構成に戻るため、USB-NCM を使う場合は burn のたびに切り替える。
 
 ## 5. 接続方法を選ぶ
 
 ### USB 直接接続
 
-USB-NCM を使う場合だけ、microSD の Device Tree を peripheral 構成へ切り替える。
-repository root に戻って実行する。
+USB-NCM を使う場合だけ、`mix burn` の後に microSD の Device Tree を peripheral 構成へ切り替える。
+リポジトリルートに戻って実行する。
 
 ```sh
 cd ../..
 sudo bash sd/use_usb_ncm.sh /dev/sdX
 ```
 
-`/dev/sdX` は実際の microSD のデバイス名に読み替える。
-`erlinit.config` の手作業による切り替えは不要。
+`/dev/sdX` は実際の microSD のデバイス名に読み替える。helper が対象確認、boot partition の
+unmount / mount、DTB の置き換え、`sync`、後処理まで行うので、通常はこのコマンドだけでよい。
+`erlinit.config` を手作業で切り替える必要もない。
+
+通常の USB 直接接続の流れは次のとおり。
+
+```text
+mix burn
+  -> sd/use_usb_ncm.sh
+  -> microSD を PW-SH6 に挿す
+  -> USB ケーブルを接続して起動
+  -> ssh user@nerves.local
+```
+
+`udevadm` や `partprobe` は通常は不要である。`mix burn` 直後に partition label を取得できない場合だけ、
+「8. うまく接続できない場合」の手順を使う。
 
 ### 有線 LAN
 
-Ethernet を使う場合は追加の SD 設定は不要。blank SD firmware に入る upstream の
+有線 LAN を使う場合は追加の SD 設定は不要。blank SD firmware に入る upstream の
 `imx28-pwsh6.dtb` は USB host 構成なので、そのまま使用する。
 
 host / peripheral の詳細は [PW-SH6 の Device Tree](../sd/README.md) を参照。
@@ -137,7 +152,7 @@ host / peripheral の詳細は [PW-SH6 の Device Tree](../sd/README.md) を参�
 peripheral DTB では System が NCM gadget を作り、`VintageNetDirect` が `usb0` の address と
 Linux PC 側への DHCP を管理する。従来の `10.42.0.1/24` 手動設定は不要になる。
 
-PW-SH6 の起動後、Linux PC に USB network interface と address が追加されたことを確認する。
+PW-SH6 の起動後、Linux PC に USB ネットワークインターフェースと address が追加されたことを確認する。
 
 ```sh
 ip -br addr
@@ -149,7 +164,7 @@ ssh user@nerves.local
 `172.31.172.182/30` が割り当てられ、`nerves.local` で ping と SSH/IEx 接続を確認した。
 この /30 subnet は `VintageNetDirect` が選ぶため、上記 address を固定値として設定しない。
 
-`nerves.local` が名前解決できない環境では、KIOSK 画面または Linux PC の network state から
+`nerves.local` が名前解決できない環境では、KIOSK 画面または Linux PC のネットワーク状態から
 PW-SH6 側の address を確認して直接指定する。
 
 ### 有線 LAN
@@ -181,23 +196,42 @@ sftp user@nerves.local
 
 ## 8. うまく接続できない場合
 
-USB 直接接続で network interface が現れない場合は、まず次を確認する。
+USB 直接接続でネットワークインターフェースが現れない場合は、まず次を確認する。
 
 - microUSB ケーブルがデータ通信対応か。
 - 最新の `mix burn` 後に `sd/use_usb_ncm.sh /dev/sdX` を実行したか。
 - ケーブルを一度抜き差しする。
-- 現在の bring-up helper が出力する `/root/gadget_diag.log` を確認する。rootfs は writable ext4 なので、
+- 現在の立ち上げ用 helper が出力する `/root/gadget_diag.log` を確認する。rootfs は writable ext4 なので、
   起動できない場合でも microSD の p2 を Linux PC で mount して読める。
 
-Ethernet で接続できない場合は、USB Ethernet adapter が認識されていること、LAN 側の DHCP server が
+`mix burn` の直後に `use_usb_ncm.sh` が次のようなエラーになることがある。
+
+```text
+エラー: /dev/sdX1 のラベルが 'boot' ではありません（現在: 'なし'）
+```
+
+これは書き込み直後で Linux 側の partition 情報や label の反映が完了していない場合に起きる。
+通常の手順では不要だが、このエラーが出たときだけ次を実行してから helper を再試行する。
+
+```sh
+sudo udevadm settle
+sudo partprobe /dev/sdX
+sudo udevadm settle
+sudo bash sd/use_usb_ncm.sh /dev/sdX
+```
+
+`lsblk -o NAME,PATH,SIZE,FSTYPE,LABEL,MOUNTPOINTS /dev/sdX` で p1 が `BOOT` または `boot`、
+p2 が `rootfs` と表示されていればよい。helper の label 確認では大文字・小文字を区別しない。
+
+有線 LAN で接続できない場合は、USB Ethernet adapter が認識されていること、LAN 側の DHCP server が
 利用できることを確認する。IEx/console が使える場合は `VintageNet.info()` で interface state を確認する。
 
-USB direct / Ethernet のどちらでも `nerves.local` が解決できない場合は、まず IP address で疎通を確認する。
+USB 直接接続 / 有線 LAN のどちらでも `nerves.local` が解決できない場合は、まず IP address で疎通を確認する。
 
-SSH が `Connection refused` になる場合は、起動直後または NervesSSH の初回 host-key generation 中の
+SSH が `Connection refused` になる場合は、起動直後または NervesSSH の初回ホスト鍵生成中の
 可能性がある。少し待ってから再試行し、必要なら `VintageNet.info()` と NervesSSH の起動状態を確認する。
 
-以前の SD カードと同じ hostname/address で host key warning が出る場合は、古い key を削除する。
+以前の SD カードと同じ hostname/address で ホスト鍵の警告が出る場合は、古い鍵を削除する。
 
 ```sh
 ssh-keygen -R nerves.local
@@ -207,7 +241,7 @@ ssh-keygen -R nerves.local
 
 - [nerves_system_brain](../README.md) - リポジトリ全体の概要
 - [アーキテクチャ概要](README.md) - 設計方針と全体像
-- [PW-SH6 の erlinit bring-up profile](erlinit.md) - `erlinit` と起動処理
+- [PW-SH6 の erlinit 立ち上げ設定](erlinit.md) - `erlinit` と起動処理
 - [PW-SH6 の Device Tree](../sd/README.md) - host / peripheral の選択
 - [アプリケーション release の作成と配置](release-deployment.md) - application release の要件と配置
 - [hello_kiosk](../examples/hello_kiosk/README.md) - example application の詳細

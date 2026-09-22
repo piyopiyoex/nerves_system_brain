@@ -42,20 +42,34 @@ DTS / DTB の内容を変更した場合は、PW-SH6 実機で起動と対象の
 ## SD カードでの選択
 
 U-Boot が読み込むファイル名は、ブートパーティション上の `imx28-pwsh6.dtb` である。
-`sd/populate_sd.sh` はこのファイルを選択・置換しない。
+通常の Nerves 開発フローでは、`mix burn` の `complete` task が buildbrain 由来の **host 構成**の
+`imx28-pwsh6.dtb` を配置する。legacy / recovery 用の `sd/populate_sd.sh` は DTB を選択・置換しない。
 
-host 構成を使う場合は、buildbrain のベースイメージに含まれる `imx28-pwsh6.dtb` を
-そのまま使用する。
+host 構成を使う場合は、そのまま起動すればよい。
 
-USB NCM 用の peripheral 構成へ切り替える場合は、次の helper を使用できる。
+USB NCM 用の peripheral 構成へ切り替える場合は、`mix burn` の後に次の helper を実行する。
 
 ```sh
 sudo bash sd/use_usb_ncm.sh /dev/sdX
 ```
 
-`mix burn` の `complete` task は host 用 `imx28-pwsh6.dtb` を p1 に書くため、USB NCM を使う場合は
-burn のたびにこの helper を再実行する。2026-09-22 にこの手順で blank SD から USB NCM、mDNS、
-NervesSSH/IEx まで実機確認している。
+`mix burn` をやり直すと host 構成へ戻るため、USB NCM を使う場合は burn のたびにこの helper を
+再実行する。helper は対象デバイスを確認したうえで boot partition を安全に mount し、DTB の置き換え、
+`sync`、unmount まで行う。通常は手動で partition を mount する必要はない。
+
+2026-09-22 に、この手順で blank SD から USB NCM、mDNS、NervesSSH/IEx まで実機確認した。
+
+`mix burn` 直後に partition label を取得できず `現在: 'なし'` と表示された場合は、Linux 側への反映を
+待ってから再試行する。
+
+```sh
+sudo udevadm settle
+sudo partprobe /dev/sdX
+sudo udevadm settle
+sudo bash sd/use_usb_ncm.sh /dev/sdX
+```
+
+これは書き込み直後にだけ必要になる復旧手順であり、通常の操作には含めない。
 
 手動で配置する場合は、ブートパーティションをマウントしたうえで次のように置き換える。
 `<boot-mount>` はそのマウントポイントに置き換える。
@@ -65,8 +79,8 @@ sudo cp sd/imx28-pwsh6-peripheral.dtb <boot-mount>/imx28-pwsh6.dtb
 sync
 ```
 
-host 構成へ戻す場合は、buildbrain のベースイメージに含まれる PW-SH6 用
-`imx28-pwsh6.dtb` を同じ場所へ復元する。
+host 構成へ戻す最も簡単な方法は、通常どおり `mix burn` を実行し直すこと。firmware を
+書き直さず DTB だけ戻す場合は、buildbrain 由来の PW-SH6 用 `imx28-pwsh6.dtb` を同じ場所へ復元する。
 
 ## buzzer variant について
 
