@@ -53,6 +53,10 @@ USB NCM 用の peripheral 構成へ切り替える場合は、次の helper を�
 sudo bash sd/use_usb_ncm.sh /dev/sdX
 ```
 
+`mix burn` の `complete` task は host 用 `imx28-pwsh6.dtb` を p1 に書くため、USB NCM を使う場合は
+burn のたびにこの helper を再実行する。2026-09-22 にこの手順で blank SD から USB NCM、mDNS、
+NervesSSH/IEx まで実機確認している。
+
 手動で配置する場合は、ブートパーティションをマウントしたうえで次のように置き換える。
 `<boot-mount>` はそのマウントポイントに置き換える。
 

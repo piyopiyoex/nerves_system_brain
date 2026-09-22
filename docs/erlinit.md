@@ -30,10 +30,12 @@ USB NCM も同様に、現在の主要な**開発用通信経路**としてこ�
 | `-m configfs:...` | USB NCM 開発用 | gadget setup に必要な configfs を Erlang 起動前に mount する |
 | `-r /srv/erlang` | 通常動作 | application release の検索場所を指定する |
 | `--boot shoehorn` | Nerves 標準 / PoC | `shoehorn.boot` を優先して起動し、standard Nerves app boot path に寄せる |
-| `--pre-run-exec /usr/bin/restore_brain_rtc` | PW-SH6 固有 | Brain RTC から Linux clock を復元する |
-| `--pre-run-exec /usr/bin/enable_ethernet_gadget` | PW-SH6 固有 | peripheral DTB のとき configfs で NCM gadget を作る。IP 設定は VintageNet に任せる |
-| `--pre-run-exec /usr/bin/enable_bt_speaker` | PW-SH6 固有 | 設定がある場合だけ Bluetooth audio daemon を非同期起動する |
+| `--pre-run-exec /usr/bin/prepare_brain_hardware` | PW-SH6 固有 | RTC restore、USB NCM gadget、Bluetooth audio の各 helper を1つの pre-run command から順に実行する |
 | `--run-on-exit /bin/sh` | bring-up | Erlang 終了後に調査用 shell を起動する |
+
+`erlinit` v1.15.1 の `--pre-run-exec` は単一の command だけを保持する。複数回指定すると後の値で
+上書きされるため、PW-SH6 固有処理は `prepare_brain_hardware` に集約し、個別 helper はそこで順に呼び出す。
+USB NCM helper が使用する `ln` と `tr` は `busybox.fragment` で明示的に有効化している。
 
 `--run-on-exit` は Erlang が終了したときに指定した command を実行する option であり、
 異常終了時だけに限定されない。現在は `/bin/sh` を指定し、終了理由や system の状態を
@@ -80,7 +82,8 @@ Erlang が終了した場合は、現在の `--run-on-exit /bin/sh` により調
 USB NCM を使用する場合、この profile は USB0 が `peripheral` mode の Device Tree を前提とする。
 本リポジトリでは `sd/imx28-pwsh6-peripheral.dtb` をその用途で管理している。
 `enable_ethernet_gadget` は Device Tree の `dr_mode` を確認し、peripheral のときだけ configfs gadget を作る。
-address は設定せず、application 側の `VintageNetDirect` に引き渡す。
+address は設定せず、application 側の `VintageNetDirect` に引き渡す。2026-09-22 の実機確認では
+`usb0` が `:configured` / `:lan` になり、Linux PC から `nerves.local` と NervesSSH/IEx で接続できた。
 
 USB Ethernet、USB Audio、USB 接続の WiFi / BLE などで USB0 を host として使用する場合は、
 brain-hackers 由来の host 構成を選択する。USB0 の host mode と USB NCM gadget は同時には使用できない。

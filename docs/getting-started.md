@@ -95,6 +95,9 @@ mise exec -- mix burn
 
 表示された候補から microSD を選ぶ。
 
+`mix burn` の `complete` task は毎回 boot partition に host 用 `imx28-pwsh6.dtb` を配置する。
+USB-NCM を使う場合は、burn のたびに次節の `sd/use_usb_ncm.sh` を再実行する。
+
 `complete` task は blank SD に MBR、FAT boot partition、ext4 rootfs partition を作成し、boot loader、
 kernel、Device Tree、application release をまとめて配置する。
 
@@ -142,6 +145,10 @@ ping nerves.local
 ssh user@nerves.local
 ```
 
+2026-09-22 の実機確認では、PW-SH6 の `usb0` に `172.31.172.181/30`、Linux PC 側に
+`172.31.172.182/30` が割り当てられ、`nerves.local` で ping と SSH/IEx 接続を確認した。
+この /30 subnet は `VintageNetDirect` が選ぶため、上記 address を固定値として設定しない。
+
 `nerves.local` が名前解決できない環境では、KIOSK 画面または Linux PC の network state から
 PW-SH6 側の address を確認して直接指定する。
 
@@ -177,8 +184,10 @@ sftp user@nerves.local
 USB 直接接続で network interface が現れない場合は、まず次を確認する。
 
 - microUSB ケーブルがデータ通信対応か。
-- `sd/use_usb_ncm.sh /dev/sdX` を実行したか。
+- 最新の `mix burn` 後に `sd/use_usb_ncm.sh /dev/sdX` を実行したか。
 - ケーブルを一度抜き差しする。
+- 現在の bring-up helper が出力する `/root/gadget_diag.log` を確認する。rootfs は writable ext4 なので、
+  起動できない場合でも microSD の p2 を Linux PC で mount して読める。
 
 Ethernet で接続できない場合は、USB Ethernet adapter が認識されていること、LAN 側の DHCP server が
 利用できることを確認する。IEx/console が使える場合は `VintageNet.info()` で interface state を確認する。
@@ -186,7 +195,7 @@ Ethernet で接続できない場合は、USB Ethernet adapter が認識され�
 USB direct / Ethernet のどちらでも `nerves.local` が解決できない場合は、まず IP address で疎通を確認する。
 
 SSH が `Connection refused` になる場合は、起動直後または NervesSSH の初回 host-key generation 中の
-可能性がある。ARMv5 上での初回生成時間と UI への影響は次回実機確認する。
+可能性がある。少し待ってから再試行し、必要なら `VintageNet.info()` と NervesSSH の起動状態を確認する。
 
 以前の SD カードと同じ hostname/address で host key warning が出る場合は、古い key を削除する。
 
