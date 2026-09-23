@@ -107,3 +107,96 @@ host-only check として検査する。
 
 各 boot で `brain-usb-mode status`、`VintageNet.info()`、`nerves.local`、NervesSSH/IEx を確認する。
 Ethernet の実機検証はこの切り替え経路を確認した後に行う。
+
+## 実機確認結果
+
+上記4ケースを同じ firmware で実機確認した。ビルドと burn は通常の Nerves 開発フローに沿って行った。
+
+```sh
+mix brain.system.build
+
+cd examples/hello_kiosk
+export MIX_TARGET=brain
+mix deps.get
+mix firmware
+
+cd ../..
+./scripts/check.sh
+
+cd examples/hello_kiosk
+mix burn
+```
+
+`./scripts/check.sh` は shell syntax、ShellCheck、Markdown relative links、DTS / DTB consistency、
+HOST / NCM DTB invariant を含めてすべて成功した。
+
+### integration test 中に見つかった `sync` dependency
+
+最初の KIOSK からの HOST -> NCM 切り替えでは、`brain-usb-mode` が次のエラーで失敗した。
+
+```text
+{:usb_mode, 127, "/usr/bin/brain-usb-mode: line 73: sync: not found"}
+```
+
+`brain-usb-mode` は active DTB を安全に置き換えるため `sync` を使用するが、System の BusyBox 設定で
+`sync` applet が有効になっていなかった。`busybox.fragment` に `CONFIG_SYNC=y` を追加して System を
+再ビルドし、生成物に次が含まれることを確認した。
+
+```text
+o/target/bin/sync -> busybox
+CONFIG_SYNC=y
+./bin/sync -> busybox   # o/images/rootfs.tar 内
+```
+
+この修正後は、同じ KIOSK 操作で DTB 切り替えと reboot まで正常に進んだ。
+
+### 確認結果
+
+| ケース | 結果 | 実機での確認 |
+| --- | --- | --- |
+| fresh `mix burn` -> HOST | 成功 | `brain-usb-mode status` は `host`。`eth0` は `192.168.10.103/24` を取得し、`nerves.local` への ping と NervesSSH/IEx が成功 |
+| KIOSK: HOST -> NCM | 成功 | helper 実行後に reboot。NCM boot では Linux PC に `enx8a158b443a01` が現れ、PW-SH6 `usb0` は `172.31.85.213/30`、PC 側は `172.31.85.214/30`。ping と NervesSSH/IEx が成功 |
+| KIOSK: NCM -> HOST | 成功 | reboot 後に `brain-usb-mode status` は `host`。`eth0` が `192.168.10.103/24` に戻り、ping と NervesSSH/IEx が成功 |
+| `sd/set_usb_mode.sh`: HOST -> NCM | 成功 | `/dev/sda1` の BOOT partition を helper が扱い、次回 boot で `ncm`。`VintageNetDirect` の `usb0` と `/30` link、ping、NervesSSH/IEx を確認 |
+| `sd/set_usb_mode.sh`: NCM -> HOST | 成功 | 次回 boot で `host`。`eth0` が LAN に復帰し、ping と NervesSSH/IEx を確認 |
+
+NCM boot 時の `VintageNet.info()` では次を確認した。
+
+```text
+Interface usb0
+  Type: VintageNetDirect
+  Present: true
+  State: :configured
+  Connection: :lan
+  Addresses: ... 172.31.85.213/30
+```
+
+HOST boot 時は Nerves の MOTD と実通信で `eth0` の `192.168.10.103/24` を確認した。
+一部の HOST boot では `VintageNet.info()` が `All interfaces: ["eth0", "lo", "sit0"]` と表示しながら
+詳細部で `No interfaces` と表示したが、`eth0` 経由の ping と NervesSSH/IEx は正常に動作していたため、
+USB HOST 経路の失敗とは扱わない。
+
+### 1回だけ観測した NCM boot の SIGSEGV
+
+KIOSK から HOST -> NCM に切り替えた直後の最初の reboot で、1回だけ BEAM が signal 11 で終了した。
+
+```text
+usb0: MAC 8a:15:8b:44:3a:02
+erlinit: Launching erl...
+...
+erlinit: Erlang terminated due to signal 11
+```
+
+同じ SD、同じ NCM 設定のまま再起動すると正常に KIOSK まで起動し、その後の NCM networking、
+`VintageNetDirect`、mDNS、NervesSSH/IEx はすべて正常だった。その後の HOST / NCM 切り替え試験でも
+再現しなかった。
+
+このため本記録では、USB mode 切り替え失敗とはせず、**再現していない intermittent boot failure** として
+別観測事項に留める。再発する場合は USB gadget 設定ではなく、`erlinit` が Erlang を起動した後から
+user application 起動前までの native/runtime startup を優先して切り分ける。
+
+## 結論
+
+USB mode 切り替えの単純化後、fresh burn、KIOSK、Linux PC helper のすべての経路で HOST / NCM を
+双方向に切り替えられることを PW-SH6 実機で確認した。`brain-usb-mode` が依存する BusyBox `sync` を
+明示的に有効化した後は、同じ firmware で各経路を通して利用できた。

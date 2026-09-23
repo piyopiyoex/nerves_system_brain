@@ -7,4 +7,4 @@
 | --- | --- |
 | [2026-09-20](20260920-nerves-standard-flow-investigation.md) | Nerves 標準開発フローへの移行可能性調査 |
 | [2026-09-22](20260922-usb-ncm-real-device-verification.md) | USB NCM / VintageNetDirect / NervesSSH の実機検証 |
-| [2026-09-23](20260923-usb-mode-switch-simplification.md) | USB HOST / NCM 切り替え経路の単純化 |
+| [2026-09-23](20260923-usb-mode-switch-simplification.md) | USB HOST / NCM 切り替え経路の単純化と実機回帰確認 |
