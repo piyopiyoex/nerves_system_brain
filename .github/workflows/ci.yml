@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  FWUP_VERSION: '1.16.0'
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -26,13 +29,43 @@ jobs:
       - name: Install check dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes curl unzip device-tree-compiler shellcheck
+          sudo apt-get install --yes curl unzip device-tree-compiler jq mtools shellcheck
+
+      - name: Install fwup
+        run: |
+          release_json=$(mktemp)
+          fwup_deb=$(mktemp --suffix=.deb)
+          trap 'rm -f -- "$release_json" "$fwup_deb"' EXIT
+
+          curl --fail --location --retry 3 \
+            --output "$release_json" \
+            "https://api.github.com/repos/fwup-home/fwup/releases/tags/v${FWUP_VERSION}"
+
+          fwup_url=$(
+            jq -r '
+              .assets[]
+              | select(.name | endswith(".deb"))
+              | select((.name | contains("amd64")) or (.name | contains("x86_64")))
+              | .browser_download_url
+            ' "$release_json" | head -n 1
+          )
+          if [ -z "$fwup_url" ] || [ "$fwup_url" = null ]; then
+            printf 'error: amd64 fwup .deb asset not found for v%s\n' "$FWUP_VERSION" >&2
+            exit 1
+          fi
+
+          curl --fail --location --retry 3 --output "$fwup_deb" "$fwup_url"
+          sudo apt-get install --yes "$fwup_deb"
+          fwup --version
 
       - name: Fetch pinned boot assets
         run: scripts/fetch_boot_assets.sh
 
       - name: Run checks
         run: scripts/check.sh
+
+      - name: Check fwup tasks
+        run: scripts/check_fwup.sh
 
   system-project:
     runs-on: ubuntu-latest
