@@ -37,7 +37,7 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `scripts/rel2fw.sh`                             | Nerves release から ext4 rootfs 入り `.fw` を生成する PoC script                 |
 | `rootfs_overlay/etc/erlinit.config`             | PW-SH6 の bring-up / USB NCM 開発用設定（[詳細](docs/erlinit.md)）                |
 | `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植）                     |
-| `busybox.fragment`                              | USB NCM setup に必要な BusyBox `ln` / `tr` applet を追加                                 |
+| `busybox.fragment`                              | USB NCM / mode switch に必要な BusyBox `ln` / `tr` / `sync` applet を追加                 |
 | `boot/imx28-pwsh6-peripheral.{dts,dtb}`           | USB NCM 用 Device Tree（[HOST / NCM の切り替え](sd/README.md)）                 |
 | `sd/*.sh`                                       | SD の作成・配備スクリプト                                                         |
 | `sd/deploy_release.sh`                          | 互換性のある Elixir release を `/srv/erlang` へ配置                               |
@@ -67,7 +67,7 @@ mix brain.system.build --clean
 初回や clean build は OTP 29 の ARMv5 クロスビルドを含むため時間がかかる。
 通常は `create-build.sh` や `make -C o` を直接実行する必要はない。
 
-USB NCM の configfs setup に必要な `ln` と `tr` は `busybox.fragment` で BusyBox に追加する。
+USB NCM の configfs setup に必要な `ln` と `tr`、USB mode 切り替えに必要な `sync` は `busybox.fragment` で BusyBox に追加する。
 `enable_ethernet_gadget` は標準の `ln -s` を使用し、独自 helper は必要としない。
 
 ### erlinit 立ち上げ用プロファイル

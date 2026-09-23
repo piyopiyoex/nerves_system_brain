@@ -35,7 +35,7 @@ USB NCM も同様に、現在の主要な**開発用通信経路**としてこ�
 
 `erlinit` v1.15.1 の `--pre-run-exec` は単一の command だけを保持する。複数回指定すると後の値で
 上書きされるため、PW-SH6 固有処理は `prepare_brain_hardware` に集約し、個別 helper はそこで順に呼び出す。
-USB NCM helper が使用する `ln` と `tr` は `busybox.fragment` で明示的に有効化している。
+USB NCM helper が使用する `ln` と `tr`、`brain-usb-mode` が使用する `sync` は `busybox.fragment` で明示的に有効化している。
 
 `--run-on-exit` は Erlang が終了したときに指定した command を実行する option であり、
 異常終了時だけに限定されない。現在は `/bin/sh` を指定し、終了理由や system の状態を
