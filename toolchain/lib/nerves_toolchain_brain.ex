@@ -18,7 +18,7 @@ defmodule NervesToolchainBrain do
     case reusable_toolchain_path(package) do
       nil ->
         {:error,
-         "Build nerves_system_brain first, or publish a Brain toolchain artifact before compiling without o/host"}
+         "Build nerves_system_brain with `mix brain.system.build`, or publish a Brain toolchain artifact before compiling without o/host"}
 
       path ->
         {:ok, path}
@@ -29,7 +29,8 @@ defmodule NervesToolchainBrain do
   def archive(package, _toolchain, options) do
     case reusable_toolchain_path(package) do
       nil ->
-        {:error, "Build nerves_system_brain before packaging the Brain toolchain artifact"}
+        {:error,
+         "Build nerves_system_brain with `mix brain.system.build` before packaging the Brain toolchain artifact"}
 
       toolchain_path ->
         archive_reusable_toolchain(package, toolchain_path, options)
@@ -80,8 +81,9 @@ defmodule NervesToolchainBrain do
   end
 
   defp reusable_toolchain_path(package) do
-    build_dir = System.get_env("NERVES_SYSTEM_BRAIN_BUILD_DIR", "../o")
-    path = Path.expand(Path.join(build_dir, "host"), package.path)
+    system_root = Path.expand("..", package.path)
+    build_dir = System.get_env("NERVES_SYSTEM_BRAIN_BUILD_DIR", "o")
+    path = build_dir |> Path.expand(system_root) |> Path.join("host")
 
     if File.dir?(Path.join(path, "bin")) do
       path

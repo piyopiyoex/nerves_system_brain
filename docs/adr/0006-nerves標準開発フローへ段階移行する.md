@@ -51,6 +51,8 @@ development interface だけを Nerves 標準へ近づける。
   release / distribution 用には両 artifact の publish 手順を整備する必要がある。
 - `examples/hello_kiosk` は target-aware な Nerves application になる。
 - standalone build / deployment scripts は当面維持し、移行中の known-good path とする。
+- ローカル System build は project-local な `mix brain.system.build` alias から行う。alias は build 手順を再実装せず、pin 済みの
+  `nerves_system_br/create-build.sh` と `make` を順に呼び出して `o/` を生成する。
 - 2026-09-21 時点で `examples/hello_kiosk` の `MIX_TARGET=brain mix firmware` から生成した
   firmware が PW-SH6 実機で boot し、KIOSK 表示、HOST-mode network、SSH/IEx 接続まで確認できた。
 - `mix firmware` の `complete` task は fixed buildbrain boot bundle を FAT p1 へ書き込む。blank

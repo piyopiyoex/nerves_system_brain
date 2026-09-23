@@ -14,8 +14,8 @@
 cd examples/hello_kiosk
 export MIX_TARGET=brain
 
-mise exec -- mix deps.get
-mise exec -- mix firmware
+mix deps.get
+mix firmware
 ```
 
 repository 内の example は `../..` の checkout を local path dependency として使う。
@@ -31,13 +31,13 @@ ERTS 同梱 ext4 rootfs を書き込む。そのため blank SD の初回 provis
 microSD へ書き込む場合は、application directory から通常の Nerves task を使う。
 
 ```sh
-mise exec -- mix burn
+mix burn
 ```
 
 実デバイスに触れず disk image を作って `complete` task を検証する場合は、低レベル task を明示できる。
 
 ```sh
-mise exec -- mix firmware.burn \
+mix firmware.burn \
   --device /tmp/hello_kiosk_brain.img --task complete -y
 ```
 

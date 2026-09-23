@@ -22,7 +22,8 @@ defmodule NervesSystemBrain.MixProject do
       nerves_package: nerves_package(),
       deps: deps(),
       aliases: [
-        loadconfig: [&bootstrap/1]
+        {:loadconfig, [&bootstrap/1]},
+        {:"brain.system.build", &brain_system_build/1}
       ]
     ]
   end
@@ -39,6 +40,97 @@ defmodule NervesSystemBrain.MixProject do
       {:nerves_system_linter, "~> 0.4", only: [:dev, :test], runtime: false}
     ]
   end
+
+  defp brain_system_build(args) do
+    {opts, positional, invalid} =
+      OptionParser.parse(args,
+        strict: [clean: :boolean, help: :boolean],
+        aliases: [c: :clean, h: :help]
+      )
+
+    if opts[:help] do
+      Mix.shell().info("""
+      Build the local PW-SH6 Nerves System through the pinned nerves_system_br dependency.
+
+          mix brain.system.build
+          mix brain.system.build --clean
+
+      On a fresh checkout, run `mix deps.get` once before this command.
+      """)
+    else
+      if positional != [] or invalid != [] do
+        Mix.raise("Usage: mix brain.system.build [--clean]")
+      end
+
+      build_dir = brain_system_build_dir()
+
+      if opts[:clean] do
+        clean_brain_system_build_dir!(build_dir)
+      end
+
+      system_br_path = Path.join(Mix.Project.deps_path(), "nerves_system_br")
+      create_build = Path.join(system_br_path, "create-build.sh")
+      defconfig = Path.join(__DIR__, "nerves_defconfig")
+
+      unless File.regular?(create_build) do
+        Mix.raise("nerves_system_br is unavailable; run mix deps.get and retry")
+      end
+
+      Mix.shell().info("==> Configuring PW-SH6 System in #{display_brain_system_path(build_dir)}")
+      run_brain_system_command!("bash", [create_build, defconfig, build_dir])
+
+      Mix.shell().info("==> Building PW-SH6 System")
+      run_brain_system_command!("make", ["-C", build_dir])
+      validate_brain_system_build!(build_dir)
+
+      Mix.shell().info(
+        "==> PW-SH6 System build complete: #{display_brain_system_path(build_dir)}"
+      )
+    end
+  end
+
+  defp brain_system_build_dir do
+    case System.get_env("NERVES_SYSTEM_BRAIN_BUILD_DIR") do
+      nil -> Path.join(__DIR__, "o")
+      "" -> Path.join(__DIR__, "o")
+      path -> Path.expand(path, __DIR__)
+    end
+  end
+
+  defp clean_brain_system_build_dir!(build_dir) do
+    if build_dir in [__DIR__, "/"] do
+      Mix.raise("refusing to remove unsafe build directory: #{build_dir}")
+    end
+
+    Mix.shell().info("==> Removing #{display_brain_system_path(build_dir)}")
+    File.rm_rf!(build_dir)
+  end
+
+  defp validate_brain_system_build!(build_dir) do
+    missing =
+      ["host", "staging", "images"]
+      |> Enum.reject(&File.dir?(Path.join(build_dir, &1)))
+
+    if missing != [] do
+      Mix.raise("System build is missing expected output: #{Enum.join(missing, ", ")}")
+    end
+  end
+
+  defp run_brain_system_command!(command, args) do
+    {_output, status} =
+      System.cmd(command, args,
+        cd: __DIR__,
+        env: [{"LD_LIBRARY_PATH", nil}],
+        into: IO.stream(:stdio, :line),
+        stderr_to_stdout: true
+      )
+
+    if status != 0 do
+      Mix.raise("command failed with status #{status}: #{command} #{Enum.join(args, " ")}")
+    end
+  end
+
+  defp display_brain_system_path(path), do: Path.relative_to(path, __DIR__)
 
   defp bootstrap(args) do
     set_target()

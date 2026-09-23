@@ -29,29 +29,33 @@ USB 直接接続では、**データ通信対応**の microUSB ケーブルも�
 ## 2. System をビルドする
 
 現在は System / toolchain artifact の公開前なので、最初にローカルで System をビルドする。
+fresh clone では `mix deps.get` で pin 済みの `nerves_system_br` dependency を取得した後、
+`mix brain.system.build` alias が Buildroot の設定更新と System build をまとめて実行する。
+Erlang / Elixir は `.tool-versions` に合わせ、mise / asdf など任意のバージョンマネージャーで
+事前にインストールする。以下は通常の `mix` コマンドとして実行する。
 
 ```sh
 git clone https://github.com/piyopiyoex/nerves_system_brain.git
 cd nerves_system_brain
 
-git clone --branch v1.34.3 --depth 1 \
-  https://github.com/nerves-project/nerves_system_br.git ../nerves_system_br
-
-../nerves_system_br/create-build.sh nerves_defconfig o
-make -C o
+mix deps.get
+mix brain.system.build
 ```
 
-初回は OTP 29 の ARMv5 クロスビルドを含むため時間がかかる。
+初回は OTP 29 の ARMv5 クロスビルドを含むため時間がかかる。`nerves_defconfig` や System 側を
+変更した後も同じ alias を実行すればよく、build 前に Buildroot 設定を再生成する。
+`o/` を捨てた完全な rebuild が必要な場合だけ `--clean` を使用する。
+
+```sh
+mix brain.system.build --clean
+```
 
 System / toolchain artifact を確認するときは、Buildroot 完了後にリポジトリルートで実行できる。
 
 ```sh
-mise trust
-mise install
-mise exec -- mix deps.get
 scripts/fetch_boot_assets.sh
-mise exec -- mix nerves.artifact nerves_toolchain_brain --path /tmp/brain-artifacts
-mise exec -- mix nerves.artifact --path /tmp/brain-artifacts
+mix nerves.artifact nerves_toolchain_brain --path /tmp/brain-artifacts
+mix nerves.artifact --path /tmp/brain-artifacts
 ```
 
 この artifact 作成は通常の application 開発には不要で、System の配布形態を確認するときに使う。
@@ -60,12 +64,9 @@ mise exec -- mix nerves.artifact --path /tmp/brain-artifacts
 
 ```sh
 cd examples/hello_kiosk
-mise trust
-mise install
-
 export MIX_TARGET=brain
-mise exec -- mix deps.get
-mise exec -- mix firmware
+mix deps.get
+mix firmware
 ```
 
 `hello_kiosk` は同じ repository にある `nerves_system_brain` を local System dependency として参照する。
@@ -90,7 +91,7 @@ lsblk -o NAME,PATH,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINTS,MODEL
 対象が microSD であることを確認したら、通常の Nerves 開発フローと同じように firmware を書き込む。
 
 ```sh
-mise exec -- mix burn
+mix burn
 ```
 
 表示された候補から microSD を選ぶ。

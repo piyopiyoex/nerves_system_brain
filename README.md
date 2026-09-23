@@ -31,7 +31,7 @@ LCD 854×480）向けのカスタム Nerves システム。
 | パス                                            | 内容                                                                              |
 | ----------------------------------------------- | --------------------------------------------------------------------------------- |
 | `nerves_defconfig`                              | Buildroot 設定（arm926t / Bootlin armv5 / ext4 / カーネル非ビルド）               |
-| `mix.exs`                                       | `nerves_system_brain` を `type: :system` として定義する System package metadata   |
+| `mix.exs`                                       | System package metadata とローカル System build 用 `brain.system.build` alias      |
 | `toolchain/`                                    | `o/host` を再利用・artifact 化する `nerves_toolchain_brain`                       |
 | `fwup.conf`                                     | 既存 FAT p1 + ext4 p2 レイアウト向けの PoC firmware 定義                         |
 | `scripts/rel2fw.sh`                             | Nerves release から ext4 rootfs 入り `.fw` を生成する PoC script                 |
@@ -47,15 +47,26 @@ LCD 854×480）向けのカスタム Nerves システム。
 
 ## ビルド
 
-```sh
-# リポジトリの親ディレクトリに nerves_system_br v1.34.3 を取得
-git clone --branch v1.34.3 --depth 1 \
-  https://github.com/nerves-project/nerves_system_br.git ../nerves_system_br
+ローカル System build は project-local な Mix alias から行う。alias は `mix.exs` で pin した
+`nerves_system_br` dependency を使い、`create-build.sh` による Buildroot 設定更新と `make` を順に実行する。
 
-# Buildroot を初期化してビルド
-../nerves_system_br/create-build.sh nerves_defconfig o
-make -C o           # OTP 29 の armv5 クロスビルドを含むため時間がかかる
+Erlang / Elixir のバージョンは `.tool-versions` に合わせ、mise / asdf など任意の
+バージョンマネージャーで準備する。fresh clone では通常の Mix project と同様に最初に
+`mix deps.get` を1回実行し、その後 System build alias を使用する。
+
+```sh
+mix deps.get
+mix brain.system.build
 ```
+
+既存の `o/` を捨てて完全に作り直す場合は `--clean` を付ける。
+
+```sh
+mix brain.system.build --clean
+```
+
+初回や clean build は OTP 29 の ARMv5 クロスビルドを含むため時間がかかる。
+通常は `create-build.sh` や `make -C o` を直接実行する必要はない。
 
 USB NCM の configfs setup に必要な `ln` と `tr` は `busybox.fragment` で BusyBox に追加する。
 `enable_ethernet_gadget` は標準の `ln -s` を使用し、独自 helper は必要としない。
@@ -101,9 +112,9 @@ NERVES_BUILD_DIR=/path/to/build-output ./scripts/build_release.sh
 cd examples/hello_kiosk
 export MIX_TARGET=brain
 
-mise exec -- mix deps.get
-mise exec -- mix firmware
-mise exec -- mix burn
+mix deps.get
+mix firmware
+mix burn
 ```
 
 この repository 内の example は `../..` の `nerves_system_brain` を local path dependency として
@@ -113,10 +124,10 @@ mise exec -- mix burn
 既存の `o/` から、通常の Nerves System artifact も生成できる。
 
 ```sh
-mise exec -- mix deps.get
+mix deps.get
 scripts/fetch_boot_assets.sh
-mise exec -- mix nerves.artifact nerves_toolchain_brain --path /tmp/brain-artifacts
-mise exec -- mix nerves.artifact --path /tmp/brain-artifacts
+mix nerves.artifact nerves_toolchain_brain --path /tmp/brain-artifacts
+mix nerves.artifact --path /tmp/brain-artifacts
 ```
 
 生成物は `nerves_system_brain-portable-<version>-<checksum>.tar.gz` と host 別の

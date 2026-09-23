@@ -53,6 +53,9 @@ jobs:
       - name: Check System formatting
         run: mix format --check-formatted
 
+      - name: Check System build command
+        run: mix brain.system.build --help
+
       - name: Lint Nerves System configuration
         run: |
           mkdir -p /tmp/nerves-system-empty-rules

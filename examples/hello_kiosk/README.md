@@ -49,19 +49,18 @@ Mix アプリ名と release 名は既存環境との互換性のため `hello_ki
 初回の System build、microSD 作成、USB-NCM 接続は
 [初回セットアップガイド](../../docs/getting-started.md) を参照。
 
-先にリポジトリルートで `nerves_system_brain` をビルドして `o/` を作成する。
+先にリポジトリルートで `mix brain.system.build` を実行し、`nerves_system_brain` の `o/` を作成する。
+手動で `nerves_system_br/create-build.sh` や `make -C o` を実行する必要はない。
 その後、このディレクトリで Nerves 標準寄りの firmware を構築する。
 
-Erlang / Elixir のバージョンは `.tool-versions` で固定しているため、mise と asdf の
-どちらでも利用できる。使用するツールマネージャーで事前にインストールする。
+Erlang / Elixir のバージョンは `.tool-versions` で固定している。mise / asdf など任意の
+バージョンマネージャーで事前にインストールし、以降は通常の Mix task として実行する。
 
 ```sh
-mise install   # または: asdf install
-
 export MIX_TARGET=brain
 
-mise exec -- mix deps.get
-mise exec -- mix firmware
+mix deps.get
+mix firmware
 ```
 
 `NervesSSH` は shoehorn から KIOSK application より先に起動する。firmware build 時に
