@@ -1,0 +1,90 @@
+#!/bin/sh
+# Select the PW-SH6 USB0 role for the next boot.
+#
+# User-facing modes are HOST and NCM. The NCM mode corresponds to the
+# Device Tree's dr_mode="peripheral" setting.
+set -eu
+
+BOOT_DEV=${BRAIN_USB_BOOT_DEV:-/dev/mmcblk1p1}
+MOUNT_DIR=${BRAIN_USB_MOUNT_DIR:-/tmp/brain-usb-mode}
+DR_MODE=/proc/device-tree/ahb@80080000/usb@80080000/dr_mode
+ACTIVE_DTB=imx28-pwsh6.dtb
+HOST_DTB=imx28-pwsh6-host.dtb
+NCM_DTB=imx28-pwsh6-peripheral.dtb
+mounted=0
+
+usage()
+{
+    echo "Usage: brain-usb-mode {status|host|ncm}" >&2
+    exit 2
+}
+
+cleanup()
+{
+    if [ "$mounted" -eq 1 ]; then
+        umount "$MOUNT_DIR" >/dev/null 2>&1 || true
+    fi
+    rmdir "$MOUNT_DIR" >/dev/null 2>&1 || true
+}
+
+current_mode()
+{
+    if [ ! -r "$DR_MODE" ]; then
+        echo unknown
+        return
+    fi
+
+    mode=$(tr -d '\000' < "$DR_MODE")
+    case "$mode" in
+        host) echo host ;;
+        peripheral) echo ncm ;;
+        *) echo unknown ;;
+    esac
+}
+
+set_mode()
+{
+    case "$1" in
+        host) source_name=$HOST_DTB ;;
+        ncm) source_name=$NCM_DTB ;;
+        *) usage ;;
+    esac
+
+    mkdir -p "$MOUNT_DIR"
+    trap cleanup 0
+    trap 'exit 129' 1
+    trap 'exit 130' 2
+    trap 'exit 143' 15
+
+    mount -t vfat -o rw,noatime "$BOOT_DEV" "$MOUNT_DIR"
+    mounted=1
+
+    source_path="$MOUNT_DIR/$source_name"
+    target_path="$MOUNT_DIR/$ACTIVE_DTB"
+    temp_path="$target_path.new"
+
+    if [ ! -f "$source_path" ]; then
+        echo "brain-usb-mode: $source_name not found on boot partition" >&2
+        echo "brain-usb-mode: recreate the SD card with the current firmware" >&2
+        exit 1
+    fi
+
+    cp -f "$source_path" "$temp_path"
+    sync
+    mv -f "$temp_path" "$target_path"
+    sync
+
+    umount "$MOUNT_DIR"
+    mounted=0
+    rmdir "$MOUNT_DIR" >/dev/null 2>&1 || true
+
+    echo "$1"
+}
+
+[ "$#" -eq 1 ] || usage
+
+case "$1" in
+    status) current_mode ;;
+    host | ncm) set_mode "$1" ;;
+    *) usage ;;
+esac

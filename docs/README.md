@@ -49,8 +49,8 @@ SHARP Brain PW-SH6
 - U-Boot / Linux kernel / Device Tree は brain-hackers の実績ある成果物を基盤にする。
 - ARMv5 soft-float 用に Bootlin の ARMv5 glibc toolchain を使用する。
 - 現在の rootfs は ext4 とし、立ち上げ・診断に必要な書き込みを許容する。
-- 開発用の標準通信経路は USB-NCM とする。USB gadget の生成は System 固有処理として残し、
-  address / DHCP は application 側の `VintageNetDirect` が管理する。
+- 開発用の標準通信経路は USB-NCM とする。USB の HOST / NCM 切り替えと gadget の生成は
+  System 固有処理として残し、address / DHCP は application 側の `VintageNetDirect` が管理する。
 - Buildroot output は当面 `o/` を再利用する。portable system artifact と Linux x86_64 toolchain
   artifact のローカル生成・利用は確認済みで、両 artifact の公開は今後の課題とする。
 

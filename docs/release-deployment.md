@@ -42,7 +42,8 @@ mise exec -- mix firmware.burn \
 ```
 
 この経路で MBR、64 MiB の FAT p1、256 MiB の ext4 p2 が生成されることを確認済み。raw image の
-p1 に `edsh6exe.bin`、`zImage`、`imx28-pwsh6.dtb` があることと、p2 の release は検査済みである。
+p1 に `edsh6exe.bin`、`zImage`、active の `imx28-pwsh6.dtb`、HOST / NCM の参照 DTB があることと、
+p2 の release は検査済みである。fresh burn では HOST を active にする。
 blank SD での実機 boot は次の確認項目であり、失敗時の復旧には旧 deployment path を使用する。
 
 `hello_kiosk` は標準 SSH 実装として `NervesSSH` を使うため fwup SSH subsystem も依存関係に含まれる。

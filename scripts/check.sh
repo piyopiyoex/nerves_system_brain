@@ -72,14 +72,14 @@ generated_dtb="$tmp_dir/pwsh6.dtb"
 generated_dts="$tmp_dir/generated.dts"
 tracked_dts="$tmp_dir/tracked.dts"
 
-dtc -q -I dts -O dtb -o "$generated_dtb" sd/imx28-pwsh6-peripheral.dts
+dtc -q -I dts -O dtb -o "$generated_dtb" boot/imx28-pwsh6-peripheral.dts
 dtc -q -I dtb -O dts -o "$generated_dts" "$generated_dtb"
-dtc -q -I dtb -O dts -o "$tracked_dts" sd/imx28-pwsh6-peripheral.dtb
+dtc -q -I dtb -O dts -o "$tracked_dts" boot/imx28-pwsh6-peripheral.dtb
 if ! cmp -s "$generated_dts" "$tracked_dts"; then
     printf '%s\n' \
-        'error: sd/imx28-pwsh6-peripheral.dtb is not generated from sd/imx28-pwsh6-peripheral.dts' \
+        'error: boot/imx28-pwsh6-peripheral.dtb is not generated from boot/imx28-pwsh6-peripheral.dts' \
         'regenerate it with:' \
-        '  dtc -I dts -O dtb sd/imx28-pwsh6-peripheral.dts -o sd/imx28-pwsh6-peripheral.dtb' >&2
+        '  dtc -I dts -O dtb boot/imx28-pwsh6-peripheral.dts -o boot/imx28-pwsh6-peripheral.dtb' >&2
     exit 1
 fi
 

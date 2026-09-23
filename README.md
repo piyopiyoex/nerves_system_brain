@@ -37,8 +37,8 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `scripts/rel2fw.sh`                             | Nerves release から ext4 rootfs 入り `.fw` を生成する PoC script                 |
 | `rootfs_overlay/etc/erlinit.config`             | PW-SH6 の bring-up / USB NCM 開発用設定（[詳細](docs/erlinit.md)）                |
 | `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植）                     |
-| `busybox.fragment`                              | USB NCM setup に必要な BusyBox `ln` applet を追加                                 |
-| `sd/imx28-pwsh6-peripheral.{dts,dtb}`           | USB NCM 用の peripheral 構成（[用途別の DTB 選択](sd/README.md)）                 |
+| `busybox.fragment`                              | USB NCM setup に必要な BusyBox `ln` / `tr` applet を追加                                 |
+| `boot/imx28-pwsh6-peripheral.{dts,dtb}`           | USB NCM 用 Device Tree（[HOST / NCM の切り替え](sd/README.md)）                 |
 | `sd/*.sh`                                       | SD の作成・配備スクリプト                                                         |
 | `sd/deploy_release.sh`                          | 互換性のある Elixir release を `/srv/erlang` へ配置                               |
 | `docs/release-deployment.md`                    | release の要件と System / application の責務分担                                  |
@@ -184,15 +184,17 @@ sudo bash sd/update_erlinit.sh /dev/sdX
 sudo bash sd/update_gadget_v2.sh /dev/sdX
 ```
 
-### PW-SH6 の Device Tree 選択
+### PW-SH6 の USB モード
 
-USB0 は用途によって host / peripheral のどちらかを選択する。brain-hackers の
-`imx28-pwsh6.dtb` は **host** 構成で、有線 LAN、USB Audio、USB 接続の WiFi / BLE
-などを使用するときの基準となる。USB NCM で開発用計算機と接続するときは、本リポジトリの
-`sd/imx28-pwsh6-peripheral.dtb` を使用する。
+USB0 のユーザー向けモードは **HOST** と **NCM** の2つに統一する。Device Tree ではそれぞれ
+`dr_mode = "host"` / `dr_mode = "peripheral"` に対応し、同時には使用できない。
 
-`populate_sd.sh` は DTB を選択・置換しない。DTS / DTB の対応、再生成方法、SD カードへの
-配置方法は [`sd/README.md`](sd/README.md) を参照。
+`mix burn` は HOST を既定にし、boot partition に HOST / NCM の参照 DTB を両方配置する。
+Linux PC からは `sd/set_usb_mode.sh /dev/sdX {host|ncm}`、PW-SH6 上では
+`brain-usb-mode {host|ncm}` で次回起動時のモードを選ぶ。KIOSK の USB 切替画面も同じ
+`brain-usb-mode` を利用し、application 独自の DTB は持たない。
+
+DTB の正本、切り替え方法、再生成方法は [`sd/README.md`](sd/README.md) を参照する。
 
 ## SSH / crng メモ
 
@@ -210,7 +212,7 @@ CC0-1.0 として整理している。ファイル単位の著作権・ライセ
 
 カーネル・U-Boot・配布イメージは
 [brain-hackers](https://github.com/brain-hackers) プロジェクトの成果物（本リポジトリには
-再配布用バイナリを含めない）。`sd/` の Device Tree ソースと生成済み DTB は
+再配布用バイナリを含めない）。`boot/` の Device Tree ソースと生成済み DTB は
 [brain-hackers/linux-brain](https://github.com/brain-hackers/linux-brain) 由来で、
 元の GPL-2.0-or-later の扱いを保持している。
 

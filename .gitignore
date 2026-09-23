@@ -10,6 +10,8 @@
 # The source and checksums are documented in boot/README.md.
 /boot/*
 !/boot/README.md
+!/boot/imx28-pwsh6-peripheral.dts
+!/boot/imx28-pwsh6-peripheral.dtb
 
 # Crash dumps captured from the device — MAY CONTAIN SECRETS (host key bytes,
 # cookies, memory contents). Never commit.

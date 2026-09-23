@@ -98,31 +98,30 @@ mise exec -- mix burn
 `complete` task は blank SD に MBR、FAT boot partition、ext4 rootfs partition を作成し、boot loader、
 kernel、Device Tree、application release をまとめて配置する。
 
-`mix burn` が配置する `imx28-pwsh6.dtb` は **USB host 構成**である。有線 LAN を使う場合は
-そのまま起動できる。USB-NCM で Linux PC と直接接続する場合だけ、次節の helper で peripheral 構成へ
-切り替える。`mix burn` をやり直すと host 構成に戻るため、USB-NCM を使う場合は burn のたびに切り替える。
+`mix burn` は boot partition に HOST / NCM の参照 DTB を両方配置し、active な
+`imx28-pwsh6.dtb` には HOST 用 DTB を入れる。したがって fresh burn の既定モードは **HOST** である。
+USB-NCM で Linux PC と直接接続する場合だけ、次節の helper で **NCM** を選ぶ。
 
 ## 5. 接続方法を選ぶ
 
 ### USB 直接接続
 
-USB-NCM を使う場合だけ、`mix burn` の後に microSD の Device Tree を peripheral 構成へ切り替える。
+USB-NCM を使う場合は、`mix burn` の後に microSD の USB モードを **NCM** に設定する。
 リポジトリルートに戻って実行する。
 
 ```sh
 cd ../..
-sudo bash sd/use_usb_ncm.sh /dev/sdX
+sudo bash sd/set_usb_mode.sh /dev/sdX ncm
 ```
 
 `/dev/sdX` は実際の microSD のデバイス名に読み替える。helper が対象確認、boot partition の
-unmount / mount、DTB の置き換え、`sync`、後処理まで行うので、通常はこのコマンドだけでよい。
-`erlinit.config` を手作業で切り替える必要もない。
+unmount / mount、active DTB の置き換え、`sync`、後処理まで行うので、通常はこのコマンドだけでよい。
 
 通常の USB 直接接続の流れは次のとおり。
 
 ```text
 mix burn
-  -> sd/use_usb_ncm.sh
+  -> sd/set_usb_mode.sh /dev/sdX ncm
   -> microSD を PW-SH6 に挿す
   -> USB ケーブルを接続して起動
   -> ssh user@nerves.local
@@ -133,10 +132,14 @@ mix burn
 
 ### 有線 LAN
 
-有線 LAN を使う場合は追加の SD 設定は不要。blank SD firmware に入る upstream の
-`imx28-pwsh6.dtb` は USB host 構成なので、そのまま使用する。
+有線 LAN を使う場合は **HOST** を選ぶ。fresh burn 直後は HOST なので追加操作は不要である。
+NCM から戻す場合は次を実行する。
 
-host / peripheral の詳細は [PW-SH6 の Device Tree](../sd/README.md) を参照。
+```sh
+sudo bash sd/set_usb_mode.sh /dev/sdX host
+```
+
+HOST / NCM の仕組みと、PW-SH6 起動後の切り替え方法は [PW-SH6 の USB モード](../sd/README.md) を参照する。
 
 ## 6. PW-SH6 を起動する
 
@@ -144,6 +147,16 @@ host / peripheral の詳細は [PW-SH6 の Device Tree](../sd/README.md) を参�
 2. 接続方法に合わせてケーブルや周辺機器を接続する。
 3. PW-SH6 を起動する。
 4. LCD に KIOSK 画面が表示されることを確認する。
+
+起動後に次回の USB モードを変える場合は、IEx / console から System helper を使える。
+
+```sh
+brain-usb-mode status
+brain-usb-mode host   # または: brain-usb-mode ncm
+reboot
+```
+
+KIOSK のホーム画面にある「USB」から HOST / NCM を選ぶ場合も、内部では同じ `brain-usb-mode` を使用する。
 
 ## 7. Linux PC から接続する
 
@@ -199,12 +212,12 @@ sftp user@nerves.local
 USB 直接接続でネットワークインターフェースが現れない場合は、まず次を確認する。
 
 - microUSB ケーブルがデータ通信対応か。
-- 最新の `mix burn` 後に `sd/use_usb_ncm.sh /dev/sdX` を実行したか。
+- 最新の `mix burn` 後に `sd/set_usb_mode.sh /dev/sdX ncm` を実行したか。
 - ケーブルを一度抜き差しする。
 - 現在の立ち上げ用 helper が出力する `/root/gadget_diag.log` を確認する。rootfs は writable ext4 なので、
   起動できない場合でも microSD の p2 を Linux PC で mount して読める。
 
-`mix burn` の直後に `use_usb_ncm.sh` が次のようなエラーになることがある。
+`mix burn` の直後に `set_usb_mode.sh` が次のようなエラーになることがある。
 
 ```text
 エラー: /dev/sdX1 のラベルが 'boot' ではありません（現在: 'なし'）
@@ -217,7 +230,7 @@ USB 直接接続でネットワークインターフェースが現れない場�
 sudo udevadm settle
 sudo partprobe /dev/sdX
 sudo udevadm settle
-sudo bash sd/use_usb_ncm.sh /dev/sdX
+sudo bash sd/set_usb_mode.sh /dev/sdX ncm
 ```
 
 `lsblk -o NAME,PATH,SIZE,FSTYPE,LABEL,MOUNTPOINTS /dev/sdX` で p1 が `BOOT` または `boot`、
@@ -242,6 +255,6 @@ ssh-keygen -R nerves.local
 - [nerves_system_brain](../README.md) - リポジトリ全体の概要
 - [アーキテクチャ概要](README.md) - 設計方針と全体像
 - [PW-SH6 の erlinit 立ち上げ設定](erlinit.md) - `erlinit` と起動処理
-- [PW-SH6 の Device Tree](../sd/README.md) - host / peripheral の選択
+- [PW-SH6 の USB モード](../sd/README.md) - HOST / NCM の切り替え
 - [アプリケーション release の作成と配置](release-deployment.md) - application release の要件と配置
 - [hello_kiosk](../examples/hello_kiosk/README.md) - example application の詳細

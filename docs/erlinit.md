@@ -80,14 +80,15 @@ Erlang が終了した場合は、現在の `--run-on-exit /bin/sh` により調
 ## Device Tree との関係
 
 USB NCM を使用する場合、この profile は USB0 が `peripheral` mode の Device Tree を前提とする。
-本リポジトリでは `sd/imx28-pwsh6-peripheral.dtb` をその用途で管理している。
+本リポジトリでは `boot/imx28-pwsh6-peripheral.dtb` をその用途で管理している。
 `enable_ethernet_gadget` は Device Tree の `dr_mode` を確認し、peripheral のときだけ configfs gadget を作る。
 address は設定せず、application 側の `VintageNetDirect` に引き渡す。2026-09-22 の実機確認では
 `usb0` が `:configured` / `:lan` になり、Linux PC から `nerves.local` と NervesSSH/IEx で接続できた。
 
 USB Ethernet、USB Audio、USB 接続の WiFi / BLE などで USB0 を host として使用する場合は、
 brain-hackers 由来の host 構成を選択する。USB0 の host mode と USB NCM gadget は同時には使用できない。
-network interface が現れた後の設定は VintageNet が担当する。DTB の選択方針は
+network interface が現れた後の設定は VintageNet が担当する。HOST / NCM の切り替えは System の
+`brain-usb-mode` に集約し、application はその helper を呼ぶだけにする。DTB の選択方針は
 [PW-SH6 の Device Tree](../sd/README.md) を参照する。
 
 

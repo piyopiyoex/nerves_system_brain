@@ -37,8 +37,7 @@ path = [
   "examples/hello_kiosk/docs/adr/*.md",
   "examples/hello_kiosk/docs/worklog/*.md",
   "examples/hello_kiosk/docs/worklog/assets/kiosk_*.png",
-  "examples/hello_kiosk/docs/worklog/assets/lovyangfx_ja_phase0.png",
-  "examples/hello_kiosk/priv/dtb/README.md"
+  "examples/hello_kiosk/docs/worklog/assets/lovyangfx_ja_phase0.png"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 nerves_system_brain contributors"
@@ -107,9 +106,8 @@ SPDX-License-Identifier = "BSD-2-Clause AND CC-BY-4.0"
 # Device Tree sources and compiled blobs derived from brain-hackers/linux-brain.
 [[annotations]]
 path = [
-  "sd/*.dts",
-  "sd/*.dtb",
-  "examples/hello_kiosk/priv/dtb/*.dtb"
+  "boot/*.dts",
+  "boot/*.dtb"
 ]
 precedence = "override"
 SPDX-FileCopyrightText = [
