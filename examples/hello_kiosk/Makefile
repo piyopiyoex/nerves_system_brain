@@ -11,6 +11,7 @@ DEVMEM_SRC = src/devmem.c
 DEVMEM_BIN = $(PRIV_DIR)/bin/devmem
 
 LGFX_REPO = https://github.com/lovyan03/LovyanGFX.git
+LGFX_REF  = 1.2.29
 LGFX_DIR  = c_src/LovyanGFX
 LGFX_SRC  = $(LGFX_DIR)/src
 
@@ -55,8 +56,8 @@ LDLIBS   += -lpthread
 all: $(NIF_SO) $(DEVMEM_BIN)
 
 $(LGFX_DIR):
-	@echo "Fetching LovyanGFX..."
-	git clone --depth 1 $(LGFX_REPO) $(LGFX_DIR)
+	@echo "Fetching LovyanGFX $(LGFX_REF)..."
+	git clone --branch $(LGFX_REF) --depth 1 $(LGFX_REPO) $(LGFX_DIR)
 
 $(NIF_SO): $(LGFX_DIR) $(NIF_SOURCES) c_src/kiosk_draw.hpp c_src/icons.cpp
 	@mkdir -p $(PRIV_DIR)

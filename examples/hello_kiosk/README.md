@@ -63,6 +63,10 @@ mix deps.get
 mix firmware
 ```
 
+LovyanGFX は、この NIF の source layout と実機検証済み構成に合わせて `1.2.29` に固定している。
+`1.2.30` では v1 実装の source layout が変更され、従来の `Panel_Device.cpp` を直接ビルドする構成とは
+互換性がないため、firmware build 時に upstream の最新 `master` は追従しない。
+
 `NervesSSH` は shoehorn から KIOSK application より先に起動する。firmware build 時に
 `~/.ssh/id_{rsa,ecdsa,ed25519}.pub` が見つかれば authorized key として取り込む。
 application の rootfs overlay は `/etc/iex.exs` を配置し、`NervesMOTD.print/0` と `use Toolshed` により
