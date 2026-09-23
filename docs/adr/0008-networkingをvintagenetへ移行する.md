@@ -2,7 +2,7 @@
 
 ## 状態
 
-採用（実機未確認）
+採用（USB NCM 実機確認済み）
 
 ## 背景
 
@@ -61,6 +61,8 @@ System 側には PW-SH6 固有の hardware setup だけを残す。
   VintageNetWiFi 管理下に置くが、接続先 credential は別途設定する。
 - `wpa_supplicant` は VintageNetWiFi が生成する configuration を扱えるよう WPA3 / control interface
   などを Buildroot で有効化する。
+- USB NCM + `VintageNetDirect` + NervesSSH の経路は 2026-09-22 に PW-SH6 実機で確認済み。
+  詳細は [`20260922-usb-ncm-real-device-verification.md`](../worklog/20260922-usb-ncm-real-device-verification.md) を参照する。
 - ARMv5 / 128 MiB 環境での `NervesPack`、VintageNet、OneDHCPD の CPU / memory / startup cost は
   未計測であり、実機入手後に確認する。
 

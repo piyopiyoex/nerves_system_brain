@@ -95,7 +95,8 @@ dtc -q -I dts -O dtb \
 ```
 
 `./scripts/check.sh` は DTS から一時 DTB を生成し、コミット済みの
-`boot/imx28-pwsh6-peripheral.dtb` と Device Tree の内容が一致することを確認する。
+`boot/imx28-pwsh6-peripheral.dtb` と Device Tree の内容が一致することを確認する。さらに HOST / NCM の
+DTB を逆コンパイルして比較し、USB0 (`usb@80080000`) の `dr_mode` 以外に差分がないことも検査する。
 DTS / DTB を変更した場合は、PW-SH6 実機で HOST / NCM の両方を再確認する。
 
 ## `mix burn` 直後に label を取得できない場合

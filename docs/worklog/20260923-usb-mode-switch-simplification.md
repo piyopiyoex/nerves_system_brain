@@ -86,6 +86,16 @@ KIOSK の「リブート実行」は helper 成功後に reboot を行うだけ�
 
 `examples/hello_kiosk/priv/dtb/` の独自 DTB は削除した。
 
+### 旧 SD patch helper を削除する
+
+現在の firmware は `erlinit.config` と `enable_ethernet_gadget` を System の rootfs として生成するため、
+既存 SD の p2 を個別に書き換える `sd/update_erlinit.sh` / `sd/update_gadget_v2.sh` は削除した。
+特に `update_erlinit.sh` は `enable_ethernet_gadget` を単独の `--pre-run-exec` として追加する旧方式であり、
+`prepare_brain_hardware` に集約した現在の起動経路とは両立しない。
+
+また `scripts/check.sh` では、NCM DTB が HOST DTB から USB0 の `dr_mode` だけを変更した派生であることを
+host-only check として検査する。
+
 ## 期待する確認
 
 次の4ケースを同じ firmware で確認する。

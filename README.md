@@ -176,14 +176,6 @@ release の要件と System / application の責務分担は
 `/dev/mmcblk0` など末尾が数字のデバイスでは、パーティション名の `p1`、`p2` を
 自動的に補う。
 
-USB NCM 関連のファイルだけを既存の SD カードへ反映する補助スクリプトも、同様に
-対象デバイスを指定して実行する。
-
-```sh
-sudo bash sd/update_erlinit.sh /dev/sdX
-sudo bash sd/update_gadget_v2.sh /dev/sdX
-```
-
 ### PW-SH6 の USB モード
 
 USB0 のユーザー向けモードは **HOST** と **NCM** の2つに統一する。Device Tree ではそれぞれ
