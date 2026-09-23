@@ -38,10 +38,8 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `rootfs_overlay/etc/erlinit.config`             | PW-SH6 の bring-up / USB NCM 開発用設定（[詳細](docs/erlinit.md)）                |
 | `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植）                     |
 | `busybox.fragment`                              | USB NCM / mode switch に必要な BusyBox `ln` / `tr` / `sync` applet を追加                 |
-| `boot/imx28-pwsh6-peripheral.{dts,dtb}`           | USB NCM 用 Device Tree（[HOST / NCM の切り替え](sd/README.md)）                 |
-| `sd/*.sh`                                       | 既存 media の再構築・release 配備用 legacy/recovery script                        |
-| `sd/deploy_release.sh`                          | 互換性のある Elixir release を `/srv/erlang` へ配置                               |
-| `docs/release-deployment.md`                    | release の要件と System / application の責務分担                                  |
+| `boot/imx28-pwsh6-peripheral.{dts,dtb}`        | USB NCM 用 Device Tree（[HOST / NCM の切り替え](docs/usb-mode.md)）              |
+| `docs/usb-mode.md`                              | HOST / NCM の切り替え方と Device Tree の管理方針                                |
 | `examples/hello_kiosk/`                         | PW-SH6 で動作確認済みの Elixir KIOSK 動作例                                       |
 | `docs/`                                         | アーキテクチャ概要と ADR（設計判断）                                              |
 
@@ -144,25 +142,14 @@ mix burn --device /dev/sdX --task usb_ncm
 
 PW-SH6 上では `brain-usb-mode {host|ncm}` を使う。KIOSK の USB 切替画面も同じ helper を利用し、
 application 独自の DTB や SD mount 処理は持たない。DTB の正本、切り替え方法、再生成方法は
-[`sd/README.md`](sd/README.md) を参照する。
-
-### legacy / recovery 用 SD script
-
-`sd/` には標準 Nerves workflow で置き換えていない recovery 用 script だけを残す。
-通常の firmware 作成・書き込み・USB mode 選択には使用しない。
-
-- `sd/populate_sd.sh`: 既存の buildbrain 系 media の p2 を rootfs + OTP で再構築する
-- `sd/deploy_release.sh`: 完成済み ERTS-less release を既存 rootfs の `/srv/erlang` に配置する
-- `sd/lib/sd_card.sh`: 上記 script の安全確認・mount 処理を共有する
-
-legacy release の要件と用途は [`docs/release-deployment.md`](docs/release-deployment.md) を参照する。
+[`docs/usb-mode.md`](docs/usb-mode.md) を参照する。
 
 ## SSH / crng メモ
 
 初期実装では独自 OTP `:ssh` daemon の crypto 初期化が UI を長時間ブロックしたため、遅延起動などの
-PW-SH6 固有対策を入れていた。現在の標準化 branch では `NervesSSH` へ移行し、既知の PBKDF2 問題だけを
-軽量 `pwdfun` override として残している。NervesSSH の初回 host-key generation を含む起動 cost は
-次回実機で再確認する。過去の実測は worklog に残す。
+PW-SH6 固有対策を入れていた。現在は `NervesSSH` へ移行し、既知の PBKDF2 問題だけを
+軽量 `pwdfun` override として残している。NervesSSH / IEx / SFTP 接続は実機確認済みで、
+過去の調査経緯は worklog に残す。
 
 ## クレジット / ライセンス
 

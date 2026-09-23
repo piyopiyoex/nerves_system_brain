@@ -30,7 +30,7 @@ USB NCM 用の Device Tree は本リポジトリで管理する。
 - `imx28-pwsh6-peripheral.dts`: USB0 を `dr_mode = "peripheral"` にした派生 DTS
 - `imx28-pwsh6-peripheral.dtb`: 上記 DTS から生成した DTB
 
-再生成方法と検査方法は [`../sd/README.md`](../sd/README.md) を参照する。
+再生成方法と検査方法は [`../docs/usb-mode.md`](../docs/usb-mode.md) を参照する。
 
 ## firmware の boot partition
 

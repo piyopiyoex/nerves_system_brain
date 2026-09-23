@@ -100,18 +100,6 @@ dtc -q -I dts -O dtb \
 DTB を逆コンパイルして比較し、USB0 (`usb@80080000`) の `dr_mode` 以外に差分がないことも検査する。
 DTS / DTB を変更した場合は、PW-SH6 実機で HOST / NCM の両方を再確認する。
 
-## `sd/` の位置づけ
-
-通常の firmware 作成・書き込み・USB mode 選択は Nerves / `fwup` の task を使う。
-`sd/` に残す script は、既存 media の再構築や release 単体配備など、標準 workflow で置き換えていない
-legacy/recovery 用である。
-
-- `populate_sd.sh`: 既存の buildbrain 系 media を rootfs + OTP で再構築する
-- `deploy_release.sh`: 完成済み ERTS-less release を既存 rootfs の `/srv/erlang` に配置する
-- `lib/sd_card.sh`: 上記 script の安全確認・mount 処理を共有する
-
-通常の initial provisioning ではこれらを使わず、`mix firmware` + `mix burn` を使う。
-
 ## 過去の buzzer variant について
 
 過去には内蔵 buzzer の調査用として `buzzer` / `buzzer_cold` を有効にした DTB を試していたが、現在の

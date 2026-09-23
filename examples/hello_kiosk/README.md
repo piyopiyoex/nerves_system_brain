@@ -6,7 +6,7 @@ Mix アプリ名と release 名は既存環境との互換性のため `hello_ki
 - SoC: NXP i.MX283（ARM926EJ-S / ARMv5TEJ soft-float / RAM 128MiB）
 - LCD: 5.5インチ 854×480（RGB565 LE, /dev/fb0 直描画）
 - ネットワーク: NervesPack / VintageNet（USB-NCM direct、USB Ethernet、WiFi）
-- ランタイム: OTP 29 + Elixir 1.20（Nerves 標準フローでは ERTS 同梱 release、旧配備フローでは ERTS 非同梱 release）
+- ランタイム: OTP 29 + Elixir 1.20（ERTS 同梱 Nerves release）
 - システム: [nerves_system_brain](../..)（nerves_system_br ベース、
   カーネル/U-Boot は brain-hackers 資産を流用）
 
@@ -90,21 +90,6 @@ blank SD にまとめて配置できる。
 この example app は同じ repository の `nerves_system_brain` を local path dependency として参照する。
 System / toolchain package の公開後は version dependency へ置き換え、通常の Nerves application と同じ
 `MIX_TARGET=brain` / `mix firmware` の使い方を維持する。
-
-### legacy / recovery release path
-
-旧来の ERTS 非同梱 release 配備パスは、rootfs / application の切り分けや recovery のために残す。
-通常の application 開発では使用せず、`mix firmware` / `mix burn` を優先する。
-
-legacy release が必要な場合だけ次を使う。
-
-```sh
-./scripts/build_release.sh
-```
-
-既定では [`nerves_system_brain`](../..) の `o/` を参照する。別の System checkout や Buildroot 出力を
-使う場合は `NERVES_SYSTEM_BRAIN_DIR` / `NERVES_BUILD_DIR` を指定できる。この release は repository
-root の `sd/deploy_release.sh` と組み合わせる recovery path であり、標準 provisioning ではない。
 
 > **SSH / crng**: 初期実装では独自 `SshDaemon` の crypto 初期化が UI を長時間
 > ブロックした。現在は `NervesSSH` へ移行し、既知の PBKDF2 問題だけを

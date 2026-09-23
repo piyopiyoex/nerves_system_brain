@@ -64,7 +64,6 @@ SHARP Brain PW-SH6
 
 - Nerves System / toolchain artifact の公開
 - `mix upload` / A/B update による安全な remote update
-- legacy/recovery SD script の削減
 - read-only rootfs / A/B 更新
 
 必要性が生じた時点で、PW-SH6 の制約と得られる利点を比較して ADR として判断する。
@@ -73,4 +72,4 @@ SHARP Brain PW-SH6
 
 1. この文書で全体像をつかむ。
 2. [`adr/README.md`](adr/README.md) で現在の設計判断を確認する。
-3. 動作例の実機知見は [`../examples/hello_kiosk/docs/`](../examples/hello_kiosk/docs/) を参照する。
+3. USB mode の操作は [`usb-mode.md`](usb-mode.md)、動作例の実機知見は [`../examples/hello_kiosk/docs/`](../examples/hello_kiosk/docs/) を参照する。
