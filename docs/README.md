@@ -29,8 +29,8 @@ SHARP Brain PW-SH6
 ```
 
 現在は brain-hackers の実績ある起動基盤を流用し、その上の rootfs と Erlang/OTP を
-`nerves_system_brain` が提供する。`align-with-nerves-way` では通常の Nerves System dependency
-として `examples/hello_kiosk` から参照できる PoC も成立している。アプリケーション例の
+`nerves_system_brain` が提供する。通常の Nerves System dependency として
+`examples/hello_kiosk` から `MIX_TARGET=brain` で参照し、`mix firmware` / `mix burn` まで実機確認している。アプリケーション例の
 `hello_kiosk` は同じリポジトリに置くが、システム側から依存しない。
 
 ## Nerves 標準に沿っている部分
@@ -41,8 +41,9 @@ SHARP Brain PW-SH6
 - application networking は `NervesPack` / `VintageNet` / `NervesSSH` を使用する。
 - PID 1 と Erlang 起動に `erlinit` を使用する。
 - System とアプリケーションの責務を分離する。
-- `type: :system`、`MIX_TARGET=brain`、`Nerves.Release.erts/0`、`mix firmware` を使った
+- `type: :system`、`MIX_TARGET=brain`、`Nerves.Release.erts/0`、`mix firmware` / `mix burn` を使った
   target application flow を提供する。
+- host 側の USB mode 選択も `fwup` task を `mix burn --task` から適用する。
 
 ## PW-SH6 固有として受け入れている部分
 
@@ -62,8 +63,8 @@ SHARP Brain PW-SH6
 以下は将来の **検討候補** であり、現在の未完了タスクとは限らない。
 
 - Nerves System / toolchain artifact の公開
-- `fwup` による blank SD 作成・更新
-- SD 配備フローの統合
+- `mix upload` / A/B update による安全な remote update
+- legacy/recovery SD script の削減
 - read-only rootfs / A/B 更新
 
 必要性が生じた時点で、PW-SH6 の制約と得られる利点を比較して ADR として判断する。

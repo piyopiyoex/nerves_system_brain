@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build the hello_kiosk_brain release for the PW-SH6 Nerves SD.
+# Legacy/recovery: build an ERTS-less hello_kiosk_brain release for an existing PW-SH6 rootfs.
 # mix release (ERTS-less) + merge armv5 OTP apps from the nerves_system_brain
 # staging tree (erlinit sets ROOTDIR=/srv/erlang, so $ROOT/lib must be complete).
 set -eu

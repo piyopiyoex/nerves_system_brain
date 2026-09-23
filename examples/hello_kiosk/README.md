@@ -51,7 +51,7 @@ Mix アプリ名と release 名は既存環境との互換性のため `hello_ki
 
 先にリポジトリルートで `mix brain.system.build` を実行し、`nerves_system_brain` の `o/` を作成する。
 手動で `nerves_system_br/create-build.sh` や `make -C o` を実行する必要はない。
-その後、このディレクトリで Nerves 標準寄りの firmware を構築する。
+その後、このディレクトリで通常の Nerves firmware を構築する。
 
 Erlang / Elixir のバージョンは `.tool-versions` で固定している。mise / asdf など任意の
 バージョンマネージャーで事前にインストールし、以降は通常の Mix task として実行する。
@@ -61,6 +61,7 @@ export MIX_TARGET=brain
 
 mix deps.get
 mix firmware
+mix burn
 ```
 
 LovyanGFX は、この NIF の source layout と実機検証済み構成に合わせて `1.2.29` に固定している。
@@ -90,45 +91,42 @@ blank SD にまとめて配置できる。
 System / toolchain package の公開後は version dependency へ置き換え、通常の Nerves application と同じ
 `MIX_TARGET=brain` / `mix firmware` の使い方を維持する。
 
-旧来の ERTS 非同梱 release 配備パスも当面維持する。標準 Nerves flow の切り分けや rootfs の
-recovery に使えるが、今回削除した独自 `SshDaemon` と同等の SSH 機能までは保証しない。
-必要な場合は、次の script で従来形式の release を構築できる。
+### legacy / recovery release path
+
+旧来の ERTS 非同梱 release 配備パスは、rootfs / application の切り分けや recovery のために残す。
+通常の application 開発では使用せず、`mix firmware` / `mix burn` を優先する。
+
+legacy release が必要な場合だけ次を使う。
 
 ```sh
 ./scripts/build_release.sh
 ```
 
-既定では [`nerves_system_brain`](../..) の `o/` を参照する。別のシステムリポジトリや
-Buildroot 出力を使う場合は次のように指定できる。
-
-```sh
-NERVES_SYSTEM_BRAIN_DIR=/path/to/nerves_system_brain ./scripts/build_release.sh
-NERVES_BUILD_DIR=/path/to/build-output ./scripts/build_release.sh
-```
-
-SD の作成・初回配備はリポジトリルートの `sd/` 以下を使用する。
+既定では [`nerves_system_brain`](../..) の `o/` を参照する。別の System checkout や Buildroot 出力を
+使う場合は `NERVES_SYSTEM_BRAIN_DIR` / `NERVES_BUILD_DIR` を指定できる。この release は repository
+root の `sd/deploy_release.sh` と組み合わせる recovery path であり、標準 provisioning ではない。
 
 > **SSH / crng**: 初期実装では独自 `SshDaemon` の crypto 初期化が UI を長時間
-> ブロックした。標準化 branch では `NervesSSH` へ移行し、既知の PBKDF2 問題だけを
-> `HelloKioskBrain.SshAuth` の軽量 `pwdfun` として残している。NervesSSH の host-key 生成を含む
-> 起動負荷は次回実機確認する。過去の調査経緯は
+> ブロックした。現在は `NervesSSH` へ移行し、既知の PBKDF2 問題だけを
+> `HelloKioskBrain.SshAuth` の軽量 `pwdfun` として残している。現在の firmware で NervesSSH / IEx / SFTP
+> 接続は実機確認済み。過去の調査経緯は
 > [SSH 起動不能の調査記録](docs/worklog/20260903_SSH起動不能_セカンドオピニオン質問書.md) を参照。
 
-## 開発サイクル（SD 往復不要）
+## 実機デバッグ補助
+
+通常の変更は `mix firmware` / `mix burn` で反映する。実機の状態確認には次の helper を利用できる。
 
 ```sh
-./scripts/build_release.sh     # リリース構築（staging から armv5 OTP アプリを合流）
-# 変更 beam を sftp で /srv/erlang/lib/hello_kiosk_brain-*/ebin へ put
-ssh user@nerves.local ':code.purge(Mod); :code.load_file(Mod); GenServer.stop(HelloKioskBrain.Display)'
 ./scripts/screenshot.sh        # 実機 LCD をリモートで PNG 取得
 ./scripts/settime.sh           # 母艦の時刻を Brain に設定(RTC 非搭載のため毎ブート後に)
 ```
 
-> 実機に電池バックアップ付き RTC は無く(/dev/rtc0 も無し)、時計は毎ブート
+> 実機に電池バックアップ付き RTC は無く(`/dev/rtc0` も無し)、時計は毎ブート
 > 1970 年起点に戻る。KIOSK ヘッダの時計は未設定時「時刻未設定」表示になるので、
 > ブート後に `settime.sh` で合わせる。
 
-初回の SD 作成・配置はリポジトリルートの `sd/`（populate_sd.sh → deploy_release.sh）。
+過去に使用していた release 単位の SFTP hot reload 手順は `docs/worklog/` に履歴として残している。
+現在の標準 workflow には含めない。
 
 ## モジュール構成
 
@@ -145,7 +143,7 @@ ssh user@nerves.local ':code.purge(Mod); :code.load_file(Mod); GenServer.stop(He
 | `HelloKioskBrain.Display` | 旧・最小 KIOSK 画面（Kiosk に置換、参考として残置） |
 | `HelloKioskBrain.SshAuth` | NervesSSH 用の PW-SH6 固有 lightweight password callback（公開鍵認証 / IEx / exec / SFTP 自体は NervesSSH が担当） |
 
-補助バイナリ `devmem`（/dev/mem mmap R/W）は `src/devmem.c` から `build_release.sh` で ARMv5 向けに生成する。
+補助バイナリ `devmem`（`/dev/mem` mmap R/W）は `src/devmem.c` から `Makefile` / `elixir_make` で NIF と一緒に ARMv5 向けに生成する。
 
 ## ドキュメント
 

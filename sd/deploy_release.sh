@@ -1,5 +1,5 @@
 #!/bin/bash
-# Elixir application release を SD カードの /srv/erlang へ配置する。
+# Legacy/recovery: Elixir application release を SD カードの /srv/erlang へ配置する。
 # release のビルドや更新方式はアプリケーション側で管理する。
 set -eu
 

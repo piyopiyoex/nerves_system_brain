@@ -1,5 +1,5 @@
 #!/bin/bash
-# SHARP Brain PW-SH6 用 SD カードの既存パーティションへ rootfs を配置する。
+# Legacy/recovery: SHARP Brain PW-SH6 の既存パーティションへ rootfs を配置する。
 # p1: nk/ の内容を直下へコピーし、SD カードからの直接起動を有効にする。
 # p2: ext4 で初期化し、Nerves rootfs と Erlang/OTP を配置する。
 set -eu

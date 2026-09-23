@@ -39,29 +39,29 @@ imx28-pwsh6-peripheral.dtb  # NCM 用の参照コピー
 ```
 
 fresh burn では active DTB に HOST 用を配置する。したがって `mix burn` 直後の既定モードは HOST である。
-モード切り替えは `imx28-pwsh6.dtb` を参照コピーのどちらかで置き換えるだけで、rootfs や firmware metadata は
+モード切り替えは active `imx28-pwsh6.dtb` だけを置き換え、rootfs や firmware metadata は
 書き換えない。
 
 ## Linux PC から切り替える
 
-SD カードを Linux PC に接続している場合は、次の1つの script を使う。
+Linux PC に microSD を接続している場合は、application directory から `fwup.conf` の USB mode task を
+通常の Nerves `mix burn` 経由で適用する。先に `mix firmware` で現在の firmware を生成しておく。
 
 ```sh
-sudo bash sd/set_usb_mode.sh /dev/sdX host
-sudo bash sd/set_usb_mode.sh /dev/sdX ncm
+cd examples/hello_kiosk
+export MIX_TARGET=brain
+mix firmware
+
+mix burn --device /dev/sdX --task usb_host
+mix burn --device /dev/sdX --task usb_ncm
 ```
 
-script は対象デバイスと `boot` label を確認し、p1 の参照 DTB から active DTB を更新して `sync` / unmount まで行う。
-`/dev/sdX` は実際の microSD デバイスに読み替える。
+`/dev/sdX` は実際の microSD デバイスに読み替える。`usb_host` / `usb_ncm` は既存の Brain boot
+partition を確認した上で、firmware に含まれる HOST / NCM DTB を active `imx28-pwsh6.dtb` に書く。
+`complete` task と違い、partition table、rootfs、firmware metadata は更新しない。
 
-以前の `sd/use_usb_ncm.sh` は互換用 wrapper として残しており、次と同じ意味になる。
-
-```sh
-sudo bash sd/use_usb_ncm.sh /dev/sdX
-# == sudo bash sd/set_usb_mode.sh /dev/sdX ncm
-```
-
-新しい手順や文書では `set_usb_mode.sh` を使う。
+対象 media に HOST / NCM の参照 DTB がない場合は task が失敗する。その場合は先に通常の
+`mix burn` で current firmware を書き込む。
 
 ## PW-SH6 上で切り替える
 
@@ -74,7 +74,8 @@ brain-usb-mode ncm
 ```
 
 `status` は現在起動中の Device Tree の `dr_mode` を読み、`host` / `ncm` / `unknown` のいずれかを返す。
-`host` / `ncm` は **次回起動用**の active DTB を書き換えるだけで、自動では再起動しない。
+`host` / `ncm` は **次回起動用**の active DTB を boot partition 上の参照コピーで置き換えるだけで、
+自動では再起動しない。
 
 ```sh
 brain-usb-mode ncm
@@ -99,19 +100,17 @@ dtc -q -I dts -O dtb \
 DTB を逆コンパイルして比較し、USB0 (`usb@80080000`) の `dr_mode` 以外に差分がないことも検査する。
 DTS / DTB を変更した場合は、PW-SH6 実機で HOST / NCM の両方を再確認する。
 
-## `mix burn` 直後に label を取得できない場合
+## `sd/` の位置づけ
 
-書き込み直後だけ、Linux 側への partition / filesystem 情報の反映が間に合わず、
-`set_usb_mode.sh` が label を `なし` と判定することがある。その場合だけ次を実行して再試行する。
+通常の firmware 作成・書き込み・USB mode 選択は Nerves / `fwup` の task を使う。
+`sd/` に残す script は、既存 media の再構築や release 単体配備など、標準 workflow で置き換えていない
+legacy/recovery 用である。
 
-```sh
-sudo udevadm settle
-sudo partprobe /dev/sdX
-sudo udevadm settle
-sudo bash sd/set_usb_mode.sh /dev/sdX ncm
-```
+- `populate_sd.sh`: 既存の buildbrain 系 media を rootfs + OTP で再構築する
+- `deploy_release.sh`: 完成済み ERTS-less release を既存 rootfs の `/srv/erlang` に配置する
+- `lib/sd_card.sh`: 上記 script の安全確認・mount 処理を共有する
 
-これは復旧手順であり、通常の操作には含めない。
+通常の initial provisioning ではこれらを使わず、`mix firmware` + `mix burn` を使う。
 
 ## 過去の buzzer variant について
 

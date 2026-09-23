@@ -43,9 +43,11 @@ imx28-pwsh6-peripheral.dtb  # NCM 用の参照コピー
 ```
 
 fresh burn では `imx28-pwsh6.dtb` に HOST 用 DTB を入れるため、既定の USB モードは **HOST** になる。
-HOST / NCM の切り替えは active DTB を2つの参照コピーのどちらかで置き換え、再起動して反映する。
+HOST / NCM の切り替えは active DTB だけを選択した mode の DTB で置き換え、再起動して反映する。
+PW-SH6 上の helper は boot partition の参照コピーを使い、Linux PC 側の `fwup` task は firmware に
+含まれる同じ System 管理 DTB を使う。
 
-- Linux PC で SD を操作する場合: `sd/set_usb_mode.sh`
+- Linux PC で SD を操作する場合: `mix burn --task usb_host` / `mix burn --task usb_ncm`
 - PW-SH6 上で操作する場合: `/usr/bin/brain-usb-mode`
 - KIOSK の「USB」画面: `brain-usb-mode` を呼ぶ薄い UI
 

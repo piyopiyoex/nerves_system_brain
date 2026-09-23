@@ -18,7 +18,7 @@ LGFX_SRC  = $(LGFX_DIR)/src
 ERTS_INCLUDE_DIR ?= $(shell erl -noshell -eval 'io:format("~ts/erts-~ts/include/", [code:root_dir(), erlang:system_info(version)]), halt().')
 
 # GNU make defines CC=cc / CXX=g++ by default, so select the target compilers
-# explicitly when build_release.sh supplies CROSSCOMPILE. Command-line CC/CXX
+# explicitly when the legacy release path supplies CROSSCOMPILE. Command-line CC/CXX
 # values still take precedence when an explicit override is needed.
 ifneq ($(strip $(CROSSCOMPILE)),)
 CC  := $(CROSSCOMPILE)-gcc

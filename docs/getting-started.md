@@ -100,43 +100,41 @@ kernel、Device Tree、application release をまとめて配置する。
 
 `mix burn` は boot partition に HOST / NCM の参照 DTB を両方配置し、active な
 `imx28-pwsh6.dtb` には HOST 用 DTB を入れる。したがって fresh burn の既定モードは **HOST** である。
-USB-NCM で Linux PC と直接接続する場合だけ、次節の helper で **NCM** を選ぶ。
+USB-NCM で Linux PC と直接接続する場合だけ、次節の `fwup` task で **NCM** を選ぶ。
 
 ## 5. 接続方法を選ぶ
 
 ### USB 直接接続
 
-USB-NCM を使う場合は、`mix burn` の後に microSD の USB モードを **NCM** に設定する。
-リポジトリルートに戻って実行する。
+USB-NCM を使う場合は、`mix burn` の後に同じ firmware の `usb_ncm` task を microSD に適用する。
+application directory のまま実行できる。
 
 ```sh
-cd ../..
-sudo bash sd/set_usb_mode.sh /dev/sdX ncm
+mix burn --device /dev/sdX --task usb_ncm
 ```
 
-`/dev/sdX` は実際の microSD のデバイス名に読み替える。helper が対象確認、boot partition の
-unmount / mount、active DTB の置き換え、`sync`、後処理まで行うので、通常はこのコマンドだけでよい。
+`/dev/sdX` は実際の microSD のデバイス名に読み替える。この task は既存の Brain boot partition を
+確認し、firmware に含まれる NCM DTB を active `imx28-pwsh6.dtb` に書く。partition table、rootfs、
+firmware metadata は変更しない。
 
 通常の USB 直接接続の流れは次のとおり。
 
 ```text
-mix burn
-  -> sd/set_usb_mode.sh /dev/sdX ncm
+mix firmware
+  -> mix burn
+  -> mix burn --device /dev/sdX --task usb_ncm
   -> microSD を PW-SH6 に挿す
   -> USB ケーブルを接続して起動
   -> ssh user@nerves.local
 ```
 
-`udevadm` や `partprobe` は通常は不要である。`mix burn` 直後に partition label を取得できない場合だけ、
-「8. うまく接続できない場合」の手順を使う。
-
 ### 有線 LAN
 
 有線 LAN を使う場合は **HOST** を選ぶ。fresh burn 直後は HOST なので追加操作は不要である。
-NCM から戻す場合は次を実行する。
+NCM から戻す場合は同じ firmware の `usb_host` task を適用する。
 
 ```sh
-sudo bash sd/set_usb_mode.sh /dev/sdX host
+mix burn --device /dev/sdX --task usb_host
 ```
 
 HOST / NCM の仕組みと、PW-SH6 起動後の切り替え方法は [PW-SH6 の USB モード](../sd/README.md) を参照する。
@@ -212,29 +210,15 @@ sftp user@nerves.local
 USB 直接接続でネットワークインターフェースが現れない場合は、まず次を確認する。
 
 - microUSB ケーブルがデータ通信対応か。
-- 最新の `mix burn` 後に `sd/set_usb_mode.sh /dev/sdX ncm` を実行したか。
+- current firmware を `mix firmware` で生成し、対象 SD に `mix burn --device /dev/sdX --task usb_ncm` を適用したか。
 - ケーブルを一度抜き差しする。
+- `brain-usb-mode status` が `ncm` を返すか。
 - 現在の立ち上げ用 helper が出力する `/root/gadget_diag.log` を確認する。rootfs は writable ext4 なので、
   起動できない場合でも microSD の p2 を Linux PC で mount して読める。
 
-`mix burn` の直後に `set_usb_mode.sh` が次のようなエラーになることがある。
-
-```text
-エラー: /dev/sdX1 のラベルが 'boot' ではありません（現在: 'なし'）
-```
-
-これは書き込み直後で Linux 側の partition 情報や label の反映が完了していない場合に起きる。
-通常の手順では不要だが、このエラーが出たときだけ次を実行してから helper を再試行する。
-
-```sh
-sudo udevadm settle
-sudo partprobe /dev/sdX
-sudo udevadm settle
-sudo bash sd/set_usb_mode.sh /dev/sdX ncm
-```
-
-`lsblk -o NAME,PATH,SIZE,FSTYPE,LABEL,MOUNTPOINTS /dev/sdX` で p1 が `BOOT` または `boot`、
-p2 が `rootfs` と表示されていればよい。helper の label 確認では大文字・小文字を区別しない。
+`usb_host` / `usb_ncm` task が boot partition の参照 DTB 不在で失敗する場合は、その media が現在の
+firmware layout になっていない。先に通常の `mix burn` (`complete` task) で firmware を書き込んでから
+mode task を再実行する。
 
 有線 LAN で接続できない場合は、USB Ethernet adapter が認識されていること、LAN 側の DHCP server が
 利用できることを確認する。IEx/console が使える場合は `VintageNet.info()` で interface state を確認する。

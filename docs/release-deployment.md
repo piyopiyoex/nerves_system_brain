@@ -2,8 +2,8 @@
 
 `nerves_system_brain` は PW-SH6 向けの実行環境と release の配置先を提供し、
 アプリケーション固有のソースコードやビルド処理には依存しない。
-現在は Nerves 標準寄りの firmware 生成フローと、従来の ERTS 非同梱 release 配備フローを
-併存させている。
+通常は Nerves の firmware 生成フローを使い、従来の ERTS 非同梱 release 配備フローは
+legacy/recovery 用として残している。
 
 ## Nerves firmware フロー
 
@@ -44,7 +44,8 @@ mix firmware.burn \
 この経路で MBR、64 MiB の FAT p1、256 MiB の ext4 p2 が生成されることを確認済み。raw image の
 p1 に `edsh6exe.bin`、`zImage`、active の `imx28-pwsh6.dtb`、HOST / NCM の参照 DTB があることと、
 p2 の release は検査済みである。fresh burn では HOST を active にする。
-blank SD での実機 boot は次の確認項目であり、失敗時の復旧には旧 deployment path を使用する。
+blank SD からの HOST boot、KIOSK での HOST / NCM 切り替え、両モードの networking も実機確認済みである。
+Linux PC から mode を変更する場合は `mix burn --task usb_host` / `usb_ncm` を使う。
 
 `hello_kiosk` は標準 SSH 実装として `NervesSSH` を使うため fwup SSH subsystem も依存関係に含まれる。
 ただし現在の `fwup.conf` の `upgrade` task は安全のため明示的に失敗するので、`mix upload` / OTA update は
@@ -68,7 +69,7 @@ feature parity ではなく、主に rootfs / application の切り分けと rec
 - release の配置先 `/srv/erlang` の提供
 - `erlinit` による `/srv/erlang` の release 起動
 - target 向け Buildroot staging tree と cross toolchain の生成
-- 完成済み release を SD カードへ配置する `sd/deploy_release.sh` の提供
+- legacy/recovery 用に完成済み release を SD カードへ配置する `sd/deploy_release.sh` の提供
 
 ### アプリケーション側
 
