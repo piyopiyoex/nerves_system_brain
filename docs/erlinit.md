@@ -89,7 +89,7 @@ USB Ethernet、USB Audio、USB 接続の WiFi / BLE などで USB0 を host と�
 brain-hackers 由来の host 構成を選択する。USB0 の host mode と USB NCM gadget は同時には使用できない。
 network interface が現れた後の設定は VintageNet が担当する。HOST / NCM の切り替えは System の
 `brain-usb-mode` に集約し、application はその helper を呼ぶだけにする。DTB の選択方針は
-[PW-SH6 の Device Tree](../sd/README.md) を参照する。
+[PW-SH6 の Device Tree](usb-mode.md) を参照する。
 
 
 ## 将来の運用構成で再評価する項目

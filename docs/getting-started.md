@@ -137,7 +137,7 @@ NCM から戻す場合は同じ firmware の `usb_host` task を適用する。
 mix burn --device /dev/sdX --task usb_host
 ```
 
-HOST / NCM の仕組みと、PW-SH6 起動後の切り替え方法は [PW-SH6 の USB モード](../sd/README.md) を参照する。
+HOST / NCM の仕組みと、PW-SH6 起動後の切り替え方法は [PW-SH6 の USB モード](usb-mode.md) を参照する。
 
 ## 6. PW-SH6 を起動する
 
@@ -239,6 +239,5 @@ ssh-keygen -R nerves.local
 - [nerves_system_brain](../README.md) - リポジトリ全体の概要
 - [アーキテクチャ概要](README.md) - 設計方針と全体像
 - [PW-SH6 の erlinit 立ち上げ設定](erlinit.md) - `erlinit` と起動処理
-- [PW-SH6 の USB モード](../sd/README.md) - HOST / NCM の切り替え
-- [アプリケーション release の作成と配置](release-deployment.md) - application release の要件と配置
+- [PW-SH6 の USB モード](usb-mode.md) - HOST / NCM の切り替え
 - [hello_kiosk](../examples/hello_kiosk/README.md) - example application の詳細
