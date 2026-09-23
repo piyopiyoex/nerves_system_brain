@@ -85,6 +85,13 @@ if ! cmp -s "$generated_dts" "$tracked_dts"; then
 fi
 
 printf '==> HOST / NCM DTB invariant\n'
+if [ ! -s boot/imx28-pwsh6.dtb ]; then
+    printf '%s\n' \
+        'error: boot/imx28-pwsh6.dtb is missing' \
+        'run scripts/fetch_boot_assets.sh first' >&2
+    exit 1
+fi
+
 host_dts="$tmp_dir/host.dts"
 host_normalized="$tmp_dir/host-normalized.dts"
 ncm_normalized="$tmp_dir/ncm-normalized.dts"

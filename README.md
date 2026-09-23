@@ -51,11 +51,10 @@ LCD 854×480）向けのカスタム Nerves システム。
 `nerves_system_br` dependency を使い、`create-build.sh` による Buildroot 設定更新と `make` を順に実行する。
 
 Erlang / Elixir のバージョンは `.tool-versions` に合わせ、mise / asdf など任意の
-バージョンマネージャーで準備する。fresh clone では通常の Mix project と同様に最初に
-`mix deps.get` を1回実行し、その後 System build alias を使用する。
+バージョンマネージャーで準備する。System build alias は必要な Mix dependency も取得するため、
+fresh clone からそのまま実行できる。
 
 ```sh
-mix deps.get
 mix brain.system.build
 ```
 

@@ -26,7 +26,10 @@ jobs:
       - name: Install check dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes device-tree-compiler shellcheck
+          sudo apt-get install --yes curl unzip device-tree-compiler shellcheck
+
+      - name: Fetch pinned boot assets
+        run: scripts/fetch_boot_assets.sh
 
       - name: Run checks
         run: scripts/check.sh
@@ -47,14 +50,14 @@ jobs:
       - name: Install Nerves bootstrap
         run: mix archive.install hex nerves_bootstrap 1.16.0 --force
 
+      - name: Check System build command bootstrap
+        run: mix brain.system.build --help
+
       - name: Fetch System dependencies
         run: mix deps.get
 
       - name: Check System formatting
         run: mix format --check-formatted
-
-      - name: Check System build command
-        run: mix brain.system.build --help
 
       - name: Lint Nerves System configuration
         run: |

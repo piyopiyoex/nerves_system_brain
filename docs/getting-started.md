@@ -29,8 +29,8 @@ USB 直接接続では、**データ通信対応**の microUSB ケーブルも�
 ## 2. System をビルドする
 
 現在は System / toolchain artifact の公開前なので、最初にローカルで System をビルドする。
-fresh clone では `mix deps.get` で pin 済みの `nerves_system_br` dependency を取得した後、
-`mix brain.system.build` alias が Buildroot の設定更新と System build をまとめて実行する。
+`mix brain.system.build` alias が pin 済みの `nerves_system_br` dependency の取得、
+Buildroot の設定更新、System build をまとめて実行する。
 Erlang / Elixir は `.tool-versions` に合わせ、mise / asdf など任意のバージョンマネージャーで
 事前にインストールする。以下は通常の `mix` コマンドとして実行する。
 
@@ -38,7 +38,6 @@ Erlang / Elixir は `.tool-versions` に合わせ、mise / asdf など任意の�
 git clone https://github.com/piyopiyoex/nerves_system_brain.git
 cd nerves_system_brain
 
-mix deps.get
 mix brain.system.build
 ```
 

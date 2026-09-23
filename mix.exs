@@ -55,26 +55,22 @@ defmodule NervesSystemBrain.MixProject do
           mix brain.system.build
           mix brain.system.build --clean
 
-      On a fresh checkout, run `mix deps.get` once before this command.
+      Dependencies are fetched automatically on a fresh checkout.
       """)
     else
       if positional != [] or invalid != [] do
         Mix.raise("Usage: mix brain.system.build [--clean]")
       end
 
+      system_br_path = ensure_nerves_system_br!()
       build_dir = brain_system_build_dir()
 
       if opts[:clean] do
         clean_brain_system_build_dir!(build_dir)
       end
 
-      system_br_path = Path.join(Mix.Project.deps_path(), "nerves_system_br")
       create_build = Path.join(system_br_path, "create-build.sh")
       defconfig = Path.join(__DIR__, "nerves_defconfig")
-
-      unless File.regular?(create_build) do
-        Mix.raise("nerves_system_br is unavailable; run mix deps.get and retry")
-      end
 
       Mix.shell().info("==> Configuring PW-SH6 System in #{display_brain_system_path(build_dir)}")
       run_brain_system_command!("bash", [create_build, defconfig, build_dir])
@@ -86,6 +82,22 @@ defmodule NervesSystemBrain.MixProject do
       Mix.shell().info(
         "==> PW-SH6 System build complete: #{display_brain_system_path(build_dir)}"
       )
+    end
+  end
+
+  defp ensure_nerves_system_br! do
+    system_br_path = Path.join(Mix.Project.deps_path(), "nerves_system_br")
+    create_build = Path.join(system_br_path, "create-build.sh")
+
+    unless File.regular?(create_build) do
+      Mix.shell().info("==> Fetching System dependencies")
+      Mix.Task.run("deps.get")
+    end
+
+    if File.regular?(create_build) do
+      system_br_path
+    else
+      Mix.raise("nerves_system_br is unavailable after mix deps.get")
     end
   end
 
