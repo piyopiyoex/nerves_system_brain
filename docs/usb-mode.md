@@ -60,6 +60,8 @@ mix burn --device /dev/sdX --task usb_ncm
 partition を確認した上で、firmware に含まれる HOST / NCM DTB を active `imx28-pwsh6.dtb` に書く。
 `complete` task と違い、partition table、rootfs、firmware metadata は更新しない。
 
+`mix upload` による A/B rootfs 更新も active DTB は変更しない。そのため NCM / HOST の選択は remote update 後も維持される。
+
 対象 media に HOST / NCM の参照 DTB がない場合は task が失敗する。その場合は先に通常の
 `mix burn` で current firmware を書き込む。
 

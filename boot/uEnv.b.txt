@@ -1,0 +1,1 @@
+sdroot=/dev/mmcblk1p3 rw rootwait

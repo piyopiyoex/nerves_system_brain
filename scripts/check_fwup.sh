@@ -22,6 +22,7 @@ require_file()
 }
 
 require_command fwup
+require_command fw_printenv
 require_command mcopy
 require_command cmp
 require_command grep
@@ -35,19 +36,32 @@ require_file "$REPO_ROOT/boot/edsh6exe.bin"
 require_file "$REPO_ROOT/boot/zImage"
 require_file "$REPO_ROOT/boot/imx28-pwsh6.dtb"
 require_file "$REPO_ROOT/boot/imx28-pwsh6-peripheral.dtb"
+require_file "$REPO_ROOT/boot/uEnv.a.txt"
+require_file "$REPO_ROOT/boot/uEnv.b.txt"
+require_file "$REPO_ROOT/fwup-ops.conf"
+require_file "$REPO_ROOT/fwup_include/provisioning.conf"
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/nerves-brain-fwup.XXXXXX")
 trap 'rm -rf -- "$work_dir"' EXIT
 
 system_dir="$work_dir/system"
 firmware="$work_dir/test.fw"
+ops_firmware="$work_dir/ops.fw"
 disk_image="$work_dir/disk.img"
 active_dtb="$work_dir/active.dtb"
+boot_file="$work_dir/boot-file"
+upgrade_log="$work_dir/upgrade.log"
+ops_log="$work_dir/ops.log"
+fw_env_config="$work_dir/fw_env.config"
 
-mkdir -p -- "$system_dir/images" "$system_dir/boot"
+mkdir -p -- "$system_dir/images/fwup_include" "$system_dir/boot"
 printf 'ci-rootfs\n' > "$system_dir/images/rootfs.squashfs"
+cp -- "$REPO_ROOT/fwup_include/provisioning.conf" \
+    "$system_dir/images/fwup_include/provisioning.conf"
 cp -- "$REPO_ROOT/boot/imx28-pwsh6-peripheral.dtb" \
     "$system_dir/boot/imx28-pwsh6-peripheral.dtb"
+cp -- "$REPO_ROOT/boot/uEnv.a.txt" "$system_dir/boot/uEnv.a.txt"
+cp -- "$REPO_ROOT/boot/uEnv.b.txt" "$system_dir/boot/uEnv.b.txt"
 
 NERVES_SYSTEM="$system_dir"
 BRAIN_BOOT_DIR="$REPO_ROOT/boot"
@@ -60,26 +74,57 @@ export NERVES_FW_VCS_IDENTIFIER NERVES_FW_MISC
 printf '==> create fwup archive\n'
 fwup -c -f "$REPO_ROOT/fwup.conf" -o "$firmware"
 
+printf '==> create runtime operations archive\n'
+fwup -c -f "$REPO_ROOT/fwup-ops.conf" -o "$ops_firmware"
+
 printf '==> available fwup tasks\n'
 tasks=$(fwup -l -i "$firmware")
 printf '%s\n' "$tasks"
-for task in complete upgrade usb_host usb_ncm; do
+for task in complete usb_host usb_ncm upgrade.a upgrade.b upgrade.unsupported; do
     printf '%s\n' "$tasks" | grep -Fxq "$task" || {
         printf 'error: fwup task not found: %s\n' "$task" >&2
         exit 1
     }
 done
 
-# p1 begins at block 2048; p2 ends at block 657408.
+printf '==> available runtime operation tasks\n'
+ops_tasks=$(fwup -l -i "$ops_firmware")
+printf '%s\n' "$ops_tasks"
+for task in factory-reset prevent-revert.a prevent-revert.b prevent-revert.fail \
+    revert.a revert.b revert.fail status.ab status.ba status.aa status.bb status.fail \
+    validate.a validate.b validate.fail; do
+    printf '%s\n' "$ops_tasks" | grep -Fxq "$task" || {
+        printf 'error: runtime fwup task not found: %s\n' "$task" >&2
+        exit 1
+    }
+done
+
+# p1 starts at block 2048; p2/p3 are 256 MiB each. p4 has a 256 MiB
+# minimum and expands to the remaining media capacity on real devices.
 boot_offset_bytes=$((2048 * 512))
-disk_size_bytes=$(((2048 + 131072 + 524288) * 512))
+disk_size_bytes=$(((2048 + 131072 + 524288 + 524288 + 524288) * 512))
 truncate -s "$disk_size_bytes" "$disk_image"
 
-extract_active_dtb()
+extract_boot_file()
 {
-    rm -f -- "$active_dtb"
-    mcopy -i "${disk_image}@@${boot_offset_bytes}" \
-        ::imx28-pwsh6.dtb "$active_dtb"
+    local name=$1
+    local destination=$2
+
+    rm -f -- "$destination"
+    mcopy -i "${disk_image}@@${boot_offset_bytes}" "::$name" "$destination"
+}
+
+assert_boot_file_matches()
+{
+    local name=$1
+    local expected=$2
+    local description=$3
+
+    extract_boot_file "$name" "$boot_file"
+    if ! cmp -s "$boot_file" "$expected"; then
+        printf 'error: %s does not match expected content\n' "$description" >&2
+        exit 1
+    fi
 }
 
 assert_active_dtb()
@@ -87,23 +132,59 @@ assert_active_dtb()
     local expected=$1
     local mode=$2
 
-    extract_active_dtb
+    extract_boot_file imx28-pwsh6.dtb "$active_dtb"
     if ! cmp -s "$active_dtb" "$expected"; then
         printf 'error: active DTB does not match %s mode reference\n' "$mode" >&2
         exit 1
     fi
 }
 
-printf '==> complete selects HOST\n'
-fwup -a -d "$disk_image" -i "$firmware" -t complete
+printf '==> complete selects slot A and HOST\n'
+NERVES_SERIAL_NUMBER=ci-serial fwup -a -d "$disk_image" -i "$firmware" -t complete
 assert_active_dtb "$REPO_ROOT/boot/imx28-pwsh6.dtb" HOST
+assert_boot_file_matches uEnv.a.txt "$REPO_ROOT/boot/uEnv.a.txt" 'slot A selector reference'
+assert_boot_file_matches uEnv.b.txt "$REPO_ROOT/boot/uEnv.b.txt" 'slot B selector reference'
+assert_boot_file_matches uEnv.txt "$REPO_ROOT/boot/uEnv.a.txt" 'active slot selector'
+printf '%s 0x2000 0x2000\n' "$disk_image" > "$fw_env_config"
+if [ "$(fw_printenv -c "$fw_env_config" -n nerves_serial_number)" != ci-serial ]; then
+    printf 'error: burn-time NERVES_SERIAL_NUMBER was not provisioned\n' >&2
+    exit 1
+fi
 
-printf '==> usb_ncm selects peripheral DTB\n'
+printf '==> usb_ncm selects peripheral DTB without changing slot selector\n'
 fwup -a -d "$disk_image" -i "$firmware" -t usb_ncm
 assert_active_dtb "$REPO_ROOT/boot/imx28-pwsh6-peripheral.dtb" NCM
+assert_boot_file_matches uEnv.txt "$REPO_ROOT/boot/uEnv.a.txt" 'active slot selector after usb_ncm'
 
-printf '==> usb_host restores HOST DTB\n'
+printf '==> usb_host restores HOST DTB without changing slot selector\n'
 fwup -a -d "$disk_image" -i "$firmware" -t usb_host
 assert_active_dtb "$REPO_ROOT/boot/imx28-pwsh6.dtb" HOST
+assert_boot_file_matches uEnv.txt "$REPO_ROOT/boot/uEnv.a.txt" 'active slot selector after usb_host'
+
+# The real upgrade.a/upgrade.b tasks require / to be mounted from a PW-SH6
+# rootfs slot. On the CI host they must fall through to the explicit guard task.
+printf '==> upgrade prefix rejects non-target host context\n'
+if fwup -a -d "$disk_image" -i "$firmware" -t upgrade >"$upgrade_log" 2>&1; then
+    printf 'error: upgrade unexpectedly succeeded outside a PW-SH6 rootfs slot\n' >&2
+    exit 1
+fi
+grep -Fq 'mix upload must run on a PW-SH6 booted from the current A/B + application-data layout' "$upgrade_log" || {
+    cat "$upgrade_log" >&2
+    printf 'error: upgrade guard did not report the expected message\n' >&2
+    exit 1
+}
+
+# Runtime slot operations also require / to be mounted from a PW-SH6 rootfs
+# slot. The explicit fallback makes accidental host execution fail clearly.
+printf '==> runtime status rejects non-target host context\n'
+if fwup -a -d "$disk_image" -i "$ops_firmware" -t status >"$ops_log" 2>&1; then
+    printf 'error: runtime status unexpectedly succeeded outside a PW-SH6 rootfs slot\n' >&2
+    exit 1
+fi
+grep -Fq 'Unable to detect firmware slot status' "$ops_log" || {
+    cat "$ops_log" >&2
+    printf 'error: runtime status guard did not report the expected message\n' >&2
+    exit 1
+}
 
 printf 'fwup task checks passed.\n'

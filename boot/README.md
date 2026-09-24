@@ -32,9 +32,22 @@ USB NCM 用の Device Tree は本リポジトリで管理する。
 
 再生成方法と検査方法は [`../docs/usb-mode.md`](../docs/usb-mode.md) を参照する。
 
+## rootfs slot selector
+
+A/B rootfs では p1 の `uEnv.txt` が次回 boot する rootfs を選ぶ。repository では次の template を管理する。
+
+```text
+uEnv.a.txt  # sdroot=/dev/mmcblk1p2 ...
+uEnv.b.txt  # sdroot=/dev/mmcblk1p3 ...
+```
+
+`mix burn` は両方を p1 に置き、`uEnv.txt` は A の内容で初期化する。`mix upload` は inactive rootfs の
+書き込み完了後に reference file から `uEnv.txt` を切り替える。起動不能時は Linux PC で前 slot の
+reference file を `uEnv.txt` に戻して manual recovery できる。
+
 ## firmware の boot partition
 
-`mix burn` の `complete` task は p1 に次の3つの DTB を配置する。
+`mix burn` の `complete` task は p1 に slot selector と次の3つの DTB を配置する。
 
 ```text
 imx28-pwsh6.dtb             # U-Boot が実際に読む active DTB

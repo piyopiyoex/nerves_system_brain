@@ -30,8 +30,10 @@ SHARP Brain PW-SH6
 
 現在は brain-hackers の実績ある起動基盤を流用し、その上の rootfs と Erlang/OTP を
 `nerves_system_brain` が提供する。通常の Nerves System dependency として
-`examples/hello_kiosk` から `MIX_TARGET=brain` で参照し、`mix firmware` / `mix burn` まで実機確認している。アプリケーション例の
-`hello_kiosk` は同じリポジトリに置くが、システム側から依存しない。
+`examples/hello_kiosk` から `MIX_TARGET=brain` で参照し、`mix firmware` / `mix burn` を標準 workflow として使う。
+rootfs は p2/p3 の A/B layout とし、p4 を persistent application data として使う。application firmware は
+standard `mix upload` で inactive slot へ更新し、p4 は保持する。アプリケーション例の `hello_kiosk` は同じ
+リポジトリに置くが、システム側から依存しない。
 
 ## Nerves 標準に沿っている部分
 
@@ -44,6 +46,10 @@ SHARP Brain PW-SH6
 - `type: :system`、`MIX_TARGET=brain`、`Nerves.Release.erts/0`、`mix firmware` / `mix burn` を使った
   target application flow を提供する。
 - host 側の USB mode 選択も `fwup` task を `mix burn --task` から適用する。
+- application firmware の remote update は `NervesSSH` / `ssh_subsystem_fwup` と A/B rootfs を使い、`mix upload` を提供する。
+- persistent application data は Nerves firmware metadata で p4 を `/root` に mount し、`/data -> root` を通して slot 間で共有する。
+- `Nerves.Runtime.FwupOps` の standard `ops.fw` を提供し、slot status、明示的な revert / validation、factory reset を扱う。
+- `NERVES_SERIAL_NUMBER` / `NERVES_PROVISIONING` を使った burn-time provisioning hook を提供する。
 
 ## PW-SH6 固有として受け入れている部分
 
@@ -63,8 +69,7 @@ SHARP Brain PW-SH6
 以下は将来の **検討候補** であり、現在の未完了タスクとは限らない。
 
 - Nerves System / toolchain artifact の公開
-- `mix upload` / A/B update による安全な remote update
-- read-only rootfs / A/B 更新
+- read-only rootfs への移行
 
 必要性が生じた時点で、PW-SH6 の制約と得られる利点を比較して ADR として判断する。
 
@@ -72,4 +77,5 @@ SHARP Brain PW-SH6
 
 1. この文書で全体像をつかむ。
 2. [`adr/README.md`](adr/README.md) で現在の設計判断を確認する。
-3. USB mode の操作は [`usb-mode.md`](usb-mode.md)、動作例の実機知見は [`../examples/hello_kiosk/docs/`](../examples/hello_kiosk/docs/) を参照する。
+3. remote update は [`mix-upload.md`](mix-upload.md)、USB mode の操作は [`usb-mode.md`](usb-mode.md) を参照する。
+4. 動作例の実機知見は [`../examples/hello_kiosk/docs/`](../examples/hello_kiosk/docs/) を参照する。

@@ -191,6 +191,7 @@ defmodule NervesSystemBrain.MixProject do
     [
       "docs",
       "boot",
+      "fwup_include",
       "lib",
       "rootfs_overlay",
       "sd",
@@ -199,8 +200,10 @@ defmodule NervesSystemBrain.MixProject do
       "busybox.fragment",
       "Config.in",
       "fwup.conf",
+      "fwup-ops.conf",
       "mix.exs",
       "nerves_defconfig",
+      "post-build.sh",
       "README.md",
       "REUSE.toml",
       "VERSION"

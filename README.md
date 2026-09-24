@@ -33,7 +33,9 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `nerves_defconfig`                              | Buildroot 設定（arm926t / Bootlin armv5 / ext4 / カーネル非ビルド）               |
 | `mix.exs`                                       | System package metadata とローカル System build 用 `brain.system.build` alias      |
 | `toolchain/`                                    | `o/host` を再利用・artifact 化する `nerves_toolchain_brain`                       |
-| `fwup.conf`                                     | FAT p1 + ext4 p2 の firmware 定義と HOST / NCM 切り替え task                      |
+| `fwup.conf`                                     | FAT p1 + ext4 p2/p3(A/B) + p4(data) の firmware 定義、`mix upload`、HOST / NCM task |
+| `fwup-ops.conf`                                 | `Nerves.Runtime.FwupOps` 用の status / revert / validate / factory-reset task       |
+| `post-build.sh`                                 | runtime `ops.fw` と burn-time provisioning include を System rootfs / artifact に追加 |
 | `scripts/rel2fw.sh`                             | Nerves release を ext4 rootfs に統合して `.fw` を生成する System 固有 adapter     |
 | `rootfs_overlay/etc/erlinit.config`             | PW-SH6 の bring-up / USB NCM 開発用設定（[詳細](docs/erlinit.md)）                |
 | `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植）                     |
@@ -93,11 +95,12 @@ mix burn
 
 この repository 内の example は `../..` の `nerves_system_brain` を local path dependency として
 参照する。System / toolchain package を公開した後は version dependency へ置き換えても、application 側の
-`MIX_TARGET=brain` / `mix firmware` / `mix burn` の流れは変えない。
+`MIX_TARGET=brain` / `mix firmware` / `mix burn` / `mix upload` の流れを通常の Nerves application と同じ形で維持する。
 
 この経路では `Nerves.Release.erts/0` を使い、release を `/srv/erlang` へ含めた ext4 rootfs を
-`.fw` として生成する。`complete` task は FAT p1 と ext4 p2 を作成し、pinned buildbrain release から
-取得・checksum 検証した boot loader / kernel / DTB と application release をまとめて配置する。
+`.fw` として生成する。`complete` task は FAT p1、ext4 p2(A) / p3(B)、persistent data 用の p4 を作成し、
+pinned buildbrain release から取得・checksum 検証した boot loader / kernel / DTB と application release を
+まとめて配置する。p4 は残り容量まで拡張され、初回起動時に `Nerves.Runtime` が ext4 として `/root` へ mount する。
 fresh burn からの HOST boot、KIOSK 経由の HOST / NCM 切り替え、両モードの network 接続まで
 PW-SH6 実機で確認済みである。
 
@@ -126,8 +129,8 @@ mix firmware
 mix burn
 ```
 
-`complete` task は blank SD に MBR、FAT boot partition、ext4 rootfs partition を作り、HOST を
-既定 USB mode として配置する。
+`complete` task は blank SD に MBR、FAT boot partition、ext4 rootfs A/B partition、persistent data partition を
+作り、slot A と HOST を既定として配置する。
 
 USB0 のユーザー向けモードは **HOST** と **NCM** の2つに統一する。Device Tree ではそれぞれ
 `dr_mode = "host"` / `dr_mode = "peripheral"` に対応し、同時には使用できない。
@@ -144,12 +147,38 @@ PW-SH6 上では `brain-usb-mode {host|ncm}` を使う。KIOSK の USB 切替画
 application 独自の DTB や SD mount 処理は持たない。DTB の正本、切り替え方法、再生成方法は
 [`docs/usb-mode.md`](docs/usb-mode.md) を参照する。
 
+## firmware を更新する
+
+A/B layout で一度 `mix burn` した後は、application firmware の更新に standard `mix upload` を使える。
+
+```sh
+cd examples/hello_kiosk
+export MIX_TARGET=brain
+mix firmware
+mix upload nerves.local
+```
+
+起動中の rootfs が A(p2) なら B(p3)、B なら A へ書き込み、成功後に次回 boot slot を切り替えて再起動する。
+`mix upload` は shared p1 の kernel / DTB / boot loader と p4 の persistent data を更新せず、HOST / NCM の
+active DTB も維持する。p4 は `/root` に mount され、rootfs の `/data -> root` により NervesSSH host key なども
+slot 切り替えをまたいで保持される。System-level boot asset を変更した場合は `mix burn` を使用する。fresh `mix burn` は p4 も
+再作成するため、persistent data を保持したままの System update にはならない。automatic rollback は現段階では持たない。
+
+System rootfs には standard `Nerves.Runtime.FwupOps` 用の `ops.fw` も含める。これにより
+`Nerves.Runtime.firmware_slots/0`、明示的な `Nerves.Runtime.revert/0`、validation、factory reset を利用できる。
+これらは runtime の管理操作であり、boot failure を検出して自動で前 slot に戻す機能ではない。
+
+2026-09-24 に PW-SH6 実機で A -> B -> A の往復、p4 mount、`/data` の継続、SSH host key の継続を確認した。
+詳細と recovery 手順は [`docs/mix-upload.md`](docs/mix-upload.md)、検証記録は
+[`docs/worklog/20260924-mix-upload-real-device-verification.md`](docs/worklog/20260924-mix-upload-real-device-verification.md) を参照する。
+
 ## SSH / crng メモ
 
 初期実装では独自 OTP `:ssh` daemon の crypto 初期化が UI を長時間ブロックしたため、遅延起動などの
 PW-SH6 固有対策を入れていた。現在は `NervesSSH` へ移行し、既知の PBKDF2 問題だけを
-軽量 `pwdfun` override として残している。NervesSSH / IEx / SFTP 接続は実機確認済みで、
-過去の調査経緯は worklog に残す。
+軽量 `pwdfun` override として残している。NervesSSH / IEx / SFTP 接続は実機確認済みである。
+OTP 29 の persistent shell history はこの実機で interactive IEx の開始を止める現象を確認したため、
+`hello_kiosk` では明示的に無効化している。過去の調査経緯は worklog に残す。
 
 ## クレジット / ライセンス
 

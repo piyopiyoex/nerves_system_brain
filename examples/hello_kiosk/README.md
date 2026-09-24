@@ -71,7 +71,8 @@ LovyanGFX は、この NIF の source layout と実機検証済み構成に合�
 `NervesSSH` は shoehorn から KIOSK application より先に起動する。firmware build 時に
 `~/.ssh/id_{rsa,ecdsa,ed25519}.pub` が見つかれば authorized key として取り込む。
 application の rootfs overlay は `/etc/iex.exs` を配置し、`NervesMOTD.print/0` と `use Toolshed` により
-通常の Nerves に近い IEx 環境を提供する。
+通常の Nerves に近い IEx 環境を提供する。OTP 29 の persistent shell history は PW-SH6 で interactive IEx の
+開始を止める現象を実機確認したため、`rel/vm.args.eex` では `-kernel shell_history disabled` を明示する。
 
 PW-SH6 では OTP `:ssh` の `user_passwords` が PBKDF2 で非常に重かった実測があるため、
 移行中は `NervesSSH` の `daemon_option_overrides` で軽量な `pwdfun` を残している。
@@ -83,9 +84,21 @@ peer DHCP を管理し、USB host では `VintageNetEthernet` が `eth0` を DHC
 接続確認時は IEx から `VintageNet.info()`、WiFi の簡易設定は
 `VintageNetWiFi.quick_configure("SSID", "passphrase")` を利用できる。
 
-生成される `.fw` は、現在の FAT p1 + ext4 p2 レイアウトに合わせた firmware である。
+生成される `.fw` は、FAT p1 + ext4 p2(A) / p3(B) + p4(persistent data) の layout に合わせた firmware である。
 `complete` task は pinned buildbrain release の boot assets と、ERTS 同梱の Nerves release を
-blank SD にまとめて配置できる。
+blank SD にまとめて配置できる。p4 は初回起動時に `/root` へ mount され、`/data -> root` を通して
+NervesSSH host key と application data を A/B slot から独立して保持する。
+
+一度 current layout で `mix burn` した後は、application の更新に standard `mix upload` を使える。
+
+```sh
+mix firmware
+mix upload nerves.local
+```
+
+`mix upload` は inactive rootfs slot だけを更新し、shared boot partition の USB mode と p4 の data は維持する。
+fresh `mix burn` は p4 も再初期化する。kernel / DTB / boot loader を変更した場合は `mix burn` を使用する。詳細は
+[`docs/mix-upload.md`](../../docs/mix-upload.md) を参照する。
 
 この example app は同じ repository の `nerves_system_brain` を local path dependency として参照する。
 System / toolchain package の公開後は version dependency へ置き換え、通常の Nerves application と同じ

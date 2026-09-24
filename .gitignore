@@ -12,6 +12,8 @@
 !/boot/README.md
 !/boot/imx28-pwsh6-peripheral.dts
 !/boot/imx28-pwsh6-peripheral.dtb
+!/boot/uEnv.a.txt
+!/boot/uEnv.b.txt
 
 # Crash dumps captured from the device — MAY CONTAIN SECRETS (host key bytes,
 # cookies, memory contents). Never commit.
