@@ -31,6 +31,7 @@ path = [
   "boot/README.md",
   "docs/*.md",
   "docs/adr/*.md",
+  "docs/worklog/*.md",
   "examples/hello_kiosk/README.md",
   "examples/hello_kiosk/brain_screen.png",
   "examples/hello_kiosk/docs/*.md",

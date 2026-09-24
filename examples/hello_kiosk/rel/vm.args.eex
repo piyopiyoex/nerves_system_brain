@@ -15,8 +15,8 @@
 +sbwtdcpu none
 +sbwtdio none
 
-# Keep local shell history when the filesystem is writable.
--kernel shell_history enabled
+# Disable persistent shell history because it can block interactive SSH/IEx on this target.
+-kernel shell_history disabled
 
 ## Start the Elixir shell on the device console.
 -noshell

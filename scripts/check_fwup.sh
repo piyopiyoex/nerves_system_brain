@@ -76,9 +76,10 @@ for task in complete usb_host usb_ncm upgrade.a upgrade.b upgrade.unsupported; d
     }
 done
 
-# p1 starts at block 2048; p2/p3 are 256 MiB each.
+# p1 starts at block 2048; p2/p3 are 256 MiB each. p4 has a 256 MiB
+# minimum and expands to the remaining media capacity on real devices.
 boot_offset_bytes=$((2048 * 512))
-disk_size_bytes=$(((2048 + 131072 + 524288 + 524288) * 512))
+disk_size_bytes=$(((2048 + 131072 + 524288 + 524288 + 524288) * 512))
 truncate -s "$disk_size_bytes" "$disk_image"
 
 extract_boot_file()
@@ -139,7 +140,7 @@ if fwup -a -d "$disk_image" -i "$firmware" -t upgrade >"$upgrade_log" 2>&1; then
     printf 'error: upgrade unexpectedly succeeded outside a PW-SH6 rootfs slot\n' >&2
     exit 1
 fi
-grep -Fq 'mix upload must run on a PW-SH6 booted from the current A/B layout' "$upgrade_log" || {
+grep -Fq 'mix upload must run on a PW-SH6 booted from the current A/B + application-data layout' "$upgrade_log" || {
     cat "$upgrade_log" >&2
     printf 'error: upgrade guard did not report the expected message\n' >&2
     exit 1

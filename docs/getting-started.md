@@ -95,8 +95,10 @@ mix burn
 
 表示された候補から microSD を選ぶ。
 
-`complete` task は blank SD に MBR、FAT boot partition、ext4 rootfs A/B partition を作成し、boot loader、
-kernel、Device Tree、application release をまとめて配置する。fresh burn は p2 の slot A から起動する。
+`complete` task は blank SD に MBR、FAT boot partition、ext4 rootfs A/B partition、persistent data 用 p4 を
+作成し、boot loader、kernel、Device Tree、application release をまとめて配置する。fresh burn は p2 の
+slot A から起動する。p4 は残り容量まで拡張され、初回起動時に ext4 として `/root` へ mount される。
+fresh `mix burn` では p4 も再初期化される。
 
 `mix burn` は boot partition に HOST / NCM の参照 DTB を両方配置し、active な
 `imx28-pwsh6.dtb` には HOST 用 DTB を入れる。したがって fresh burn の既定モードは **HOST** である。
@@ -218,9 +220,10 @@ mix upload nerves.local
 
 A で起動中なら B、B で起動中なら A の rootfs を更新し、成功後に自動で再起動する。
 USB mode は shared p1 の active DTB に残るため、NCM / HOST の選択は upload 前後で変わらない。
+p4 も upload では変更されないため、`/data` と NervesSSH host key は slot 切り替えをまたいで保持される。
 kernel / DTB / boot loader を変更した場合は `mix upload` ではなく `mix burn` を使用する。
 
-旧 p1+p2 layout の SD は `mix upload` 対象にしない。最初に current firmware を `mix burn` して A/B layout に
+旧 p1+p2 layout の SD は `mix upload` 対象にしない。最初に current firmware を `mix burn` して A/B + p4 layout に
 作り直す。automatic rollback は現段階では実装していないため、起動不能時の manual recovery を含む詳細は
 [`mix upload による firmware 更新`](mix-upload.md) を参照する。
 
@@ -232,8 +235,8 @@ USB 直接接続でネットワークインターフェースが現れない場�
 - current firmware を `mix firmware` で生成し、対象 SD に `mix burn --device /dev/sdX --task usb_ncm` を適用したか。
 - ケーブルを一度抜き差しする。
 - `brain-usb-mode status` が `ncm` を返すか。
-- 現在の立ち上げ用 helper が出力する `/root/gadget_diag.log` を確認する。rootfs は writable ext4 なので、
-  起動できない場合でも microSD の p2 を Linux PC で mount して読める。
+- 現在の立ち上げ用 helper が出力する `/root/gadget_diag.log` を確認する。`/root` は p4 の persistent data
+  partition なので、起動できない場合でも microSD の p4 を Linux PC で mount して読める。
 
 `usb_host` / `usb_ncm` task が boot partition の参照 DTB 不在で失敗する場合は、その media が現在の
 firmware layout になっていない。先に通常の `mix burn` (`complete` task) で firmware を書き込んでから
@@ -247,11 +250,19 @@ USB 直接接続 / 有線 LAN のどちらでも `nerves.local` が解決でき�
 SSH が `Connection refused` になる場合は、起動直後または NervesSSH の初回ホスト鍵生成中の
 可能性がある。少し待ってから再試行し、必要なら `VintageNet.info()` と NervesSSH の起動状態を確認する。
 
-以前の SD カードと同じ hostname/address で ホスト鍵の警告が出る場合は、古い鍵を削除する。
+fresh `mix burn` は p4 を再初期化するため、その直後は SSH host key が新しくなり、以前の同じ
+hostname/address に対して host key warning が出ることがある。その場合は、書き込んだ media が正しいことを
+確認した上で古い entry を削除する。
 
 ```sh
 ssh-keygen -R nerves.local
 ```
+
+一方、`mix upload` では p4 と `/data/nerves_ssh` を保持するため、通常は host key warning は発生しない。
+upload 後だけ host key が変わる場合は、`/dev/mmcblk1p4` が `/root` に mount されているか確認する。
+
+OTP 29 の persistent shell history を有効にすると、この PW-SH6 では SSH 認証後に interactive IEx が
+開始しない現象を確認している。`hello_kiosk` は `-kernel shell_history disabled` を明示している。
 
 ## 関連ドキュメント
 
