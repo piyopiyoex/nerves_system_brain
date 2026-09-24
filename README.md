@@ -158,15 +158,17 @@ mix firmware
 mix upload nerves.local
 ```
 
-起動中の rootfs が A(p2) なら B(p3)、B なら A へ書き込み、成功後に次回 boot slot を切り替えて再起動する。
+起動中の rootfs が A(p2) なら B(p3)、B なら A へ書き込み、成功後に新 slot を unvalidated な one-shot boot として再起動する。
 `mix upload` は shared p1 の kernel / DTB / boot loader と p4 の persistent data を更新せず、HOST / NCM の
 active DTB も維持する。p4 は `/root` に mount され、rootfs の `/data -> root` により NervesSSH host key なども
 slot 切り替えをまたいで保持される。System-level boot asset を変更した場合は `mix burn` を使用する。fresh `mix burn` は p4 も
-再作成するため、persistent data を保持したままの System update にはならない。automatic rollback は現段階では持たない。
+再作成するため、persistent data を保持したままの System update にはならない。
 
 System rootfs には standard `Nerves.Runtime.FwupOps` 用の `ops.fw` も含める。これにより
 `Nerves.Runtime.firmware_slots/0`、明示的な `Nerves.Runtime.revert/0`、validation、factory reset を利用できる。
-これらは runtime の管理操作であり、boot failure を検出して自動で前 slot に戻す機能ではない。
+example app は `Nerves.Runtime.StartupGuard` と Erlang heart を有効にし、全 OTP application が起動すれば候補を確定する。
+起動が完了しなければ再起動後に旧 slot へ戻る。kernel hang など software reboot に到達できない場合は reset が必要だが、
+fallback 自体は候補起動前に arm される。
 
 2026-09-24 に PW-SH6 実機で A -> B -> A の往復、p4 mount、`/data` の継続、SSH host key の継続を確認した。
 詳細と recovery 手順は [`docs/mix-upload.md`](docs/mix-upload.md)、検証記録は

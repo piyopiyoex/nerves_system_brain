@@ -14,6 +14,8 @@
 !/boot/imx28-pwsh6-peripheral.dtb
 !/boot/uEnv.a.txt
 !/boot/uEnv.b.txt
+!/boot/uEnv.auto-a.txt
+!/boot/uEnv.auto-b.txt
 
 # Crash dumps captured from the device — MAY CONTAIN SECRETS (host key bytes,
 # cookies, memory contents). Never commit.

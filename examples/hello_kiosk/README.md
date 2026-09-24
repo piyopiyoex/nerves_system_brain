@@ -97,6 +97,8 @@ mix upload nerves.local
 ```
 
 `mix upload` は inactive rootfs slot だけを更新し、shared boot partition の USB mode と p4 の data は維持する。
+新 slot は one-shot で起動し、StartupGuard が全 OTP application の起動後に validate する。startup が完了しなければ
+Erlang heart の再起動後に旧 slot へ戻る。
 fresh `mix burn` は p4 も再初期化する。kernel / DTB / boot loader を変更した場合は `mix burn` を使用する。詳細は
 [`docs/mix-upload.md`](../../docs/mix-upload.md) を参照する。
 

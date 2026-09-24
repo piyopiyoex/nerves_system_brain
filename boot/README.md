@@ -9,6 +9,11 @@
 [brain-hackers/buildbrain 2026-03-25-024518 release](https://github.com/brain-hackers/buildbrain/releases/tag/2026-03-25-024518)
 の成果物を利用する。
 
+この release は buildbrain `3fb1dea6f15ac35023a285814c0e161b17e77f3d` と
+[u-boot-brain `e8fc0d0cf39d9cd06245ef1777d1cf54258e5cb6`](https://github.com/brain-hackers/u-boot-brain/tree/e8fc0d0cf39d9cd06245ef1777d1cf54258e5cb6)
+に対応する。PW-SH6 defconfig の `CONFIG_ENV_SIZE=0x4000` と、同 build の `env import/export`、raw MMC command を
+one-shot boot state に利用する。
+
 - `edsh6exe.bin`: PW-SH6 NK/U-Boot loader
 - `zImage`: Linux kernel
 - `imx28-pwsh6.dtb`: PW-SH6 の HOST 用 Device Tree
@@ -34,16 +39,20 @@ USB NCM 用の Device Tree は本リポジトリで管理する。
 
 ## rootfs slot selector
 
-A/B rootfs では p1 の `uEnv.txt` が次回 boot する rootfs を選ぶ。repository では次の template を管理する。
+A/B rootfs では p1 の `uEnv.txt` と sector 32-63 の one-shot boot state が次回 boot する rootfs を選ぶ。
+repository では次の template を管理する。
 
 ```text
-uEnv.a.txt  # sdroot=/dev/mmcblk1p2 ...
-uEnv.b.txt  # sdroot=/dev/mmcblk1p3 ...
+uEnv.auto-a.txt  # boot state が読めない場合の fallback は A
+uEnv.auto-b.txt  # boot state が読めない場合の fallback は B
+uEnv.a.txt       # boot state を無視して A を強制する manual recovery 用
+uEnv.b.txt       # boot state を無視して B を強制する manual recovery 用
 ```
 
-`mix burn` は両方を p1 に置き、`uEnv.txt` は A の内容で初期化する。`mix upload` は inactive rootfs の
-書き込み完了後に reference file から `uEnv.txt` を切り替える。起動不能時は Linux PC で前 slot の
-reference file を `uEnv.txt` に戻して manual recovery できる。
+`mix burn` は4つを p1 に置き、`uEnv.txt` は `uEnv.auto-a.txt` で初期化する。`mix upload` は inactive rootfs を
+one-shot 候補として予約し、候補を起動する前に U-Boot が旧 slot を次回 boot として永続化する。application が
+候補を validate すると、その slot の automatic selector が確定済み `uEnv.txt` になる。automatic fallback でも
+起動不能な場合は、Linux PC で forced selector を `uEnv.txt` にコピーして manual recovery できる。
 
 ## firmware の boot partition
 
