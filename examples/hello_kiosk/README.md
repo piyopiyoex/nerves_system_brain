@@ -83,9 +83,20 @@ peer DHCP を管理し、USB host では `VintageNetEthernet` が `eth0` を DHC
 接続確認時は IEx から `VintageNet.info()`、WiFi の簡易設定は
 `VintageNetWiFi.quick_configure("SSID", "passphrase")` を利用できる。
 
-生成される `.fw` は、現在の FAT p1 + ext4 p2 レイアウトに合わせた firmware である。
+生成される `.fw` は、FAT p1 + ext4 p2(A) / p3(B) の A/B layout に合わせた firmware である。
 `complete` task は pinned buildbrain release の boot assets と、ERTS 同梱の Nerves release を
 blank SD にまとめて配置できる。
+
+一度 current layout で `mix burn` した後は、application の更新に standard `mix upload` を使える。
+
+```sh
+mix firmware
+mix upload nerves.local
+```
+
+`mix upload` は inactive rootfs slot だけを更新し、shared boot partition の USB mode は維持する。
+kernel / DTB / boot loader を変更した場合は `mix burn` を使用する。詳細は
+[`docs/mix-upload.md`](../../docs/mix-upload.md) を参照する。
 
 この example app は同じ repository の `nerves_system_brain` を local path dependency として参照する。
 System / toolchain package の公開後は version dependency へ置き換え、通常の Nerves application と同じ

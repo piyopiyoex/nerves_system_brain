@@ -95,8 +95,8 @@ mix burn
 
 表示された候補から microSD を選ぶ。
 
-`complete` task は blank SD に MBR、FAT boot partition、ext4 rootfs partition を作成し、boot loader、
-kernel、Device Tree、application release をまとめて配置する。
+`complete` task は blank SD に MBR、FAT boot partition、ext4 rootfs A/B partition を作成し、boot loader、
+kernel、Device Tree、application release をまとめて配置する。fresh burn は p2 の slot A から起動する。
 
 `mix burn` は boot partition に HOST / NCM の参照 DTB を両方配置し、active な
 `imx28-pwsh6.dtb` には HOST 用 DTB を入れる。したがって fresh burn の既定モードは **HOST** である。
@@ -205,7 +205,26 @@ ssh user@nerves.local 'node()'
 sftp user@nerves.local
 ```
 
-## 8. うまく接続できない場合
+## 8. 2回目以降の firmware 更新
+
+current A/B layout で一度 `mix burn` した後は、application の変更を `mix upload` で反映できる。
+
+```sh
+cd examples/hello_kiosk
+export MIX_TARGET=brain
+mix firmware
+mix upload nerves.local
+```
+
+A で起動中なら B、B で起動中なら A の rootfs を更新し、成功後に自動で再起動する。
+USB mode は shared p1 の active DTB に残るため、NCM / HOST の選択は upload 前後で変わらない。
+kernel / DTB / boot loader を変更した場合は `mix upload` ではなく `mix burn` を使用する。
+
+旧 p1+p2 layout の SD は `mix upload` 対象にしない。最初に current firmware を `mix burn` して A/B layout に
+作り直す。automatic rollback は現段階では実装していないため、起動不能時の manual recovery を含む詳細は
+[`mix upload による firmware 更新`](mix-upload.md) を参照する。
+
+## 9. うまく接続できない場合
 
 USB 直接接続でネットワークインターフェースが現れない場合は、まず次を確認する。
 
@@ -240,4 +259,5 @@ ssh-keygen -R nerves.local
 - [アーキテクチャ概要](README.md) - 設計方針と全体像
 - [PW-SH6 の erlinit 立ち上げ設定](erlinit.md) - `erlinit` と起動処理
 - [PW-SH6 の USB モード](usb-mode.md) - HOST / NCM の切り替え
+- [mix upload による firmware 更新](mix-upload.md) - A/B rootfs update と recovery
 - [hello_kiosk](../examples/hello_kiosk/README.md) - example application の詳細

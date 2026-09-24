@@ -8,6 +8,7 @@ path = [
   "NOTICE",
   "REUSE.toml",
   "busybox.fragment",
+  "boot/uEnv.*.txt",
   "examples/hello_kiosk/.formatter.exs",
   "examples/hello_kiosk/.gitignore",
   "examples/hello_kiosk/.tool-versions",
