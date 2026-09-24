@@ -4,6 +4,9 @@
 ## break handler and possibly exiting the VM.
 +Bc
 
+## Require the firmware startup guard to register with heart within 10 minutes.
+-env HEART_INIT_TIMEOUT 600
+
 # Allow time warps so Erlang system time can follow Linux system time.
 +C multi_time_warp
 
@@ -17,6 +20,9 @@
 
 # Disable persistent shell history because it can block interactive SSH/IEx on this target.
 -kernel shell_history disabled
+
+## Let Nerves.Runtime.StartupGuard trigger a reboot when validation stalls.
+-heart -env HEART_BEAT_TIMEOUT 30
 
 ## Start the Elixir shell on the device console.
 -noshell

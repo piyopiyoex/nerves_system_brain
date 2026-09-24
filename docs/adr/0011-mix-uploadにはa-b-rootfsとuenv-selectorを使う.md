@@ -4,6 +4,8 @@
 
 採用
 
+automatic rollback を導入しない部分の判断は ADR 0012 で置き換えた。
+
 ## 背景
 
 ADR 0007 では、blank SD provisioning と remote update を分離し、single-root の p2 を実行中に

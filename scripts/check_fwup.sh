@@ -23,6 +23,7 @@ require_file()
 
 require_command fwup
 require_command fw_printenv
+require_command fw_setenv
 require_command mcopy
 require_command cmp
 require_command grep
@@ -31,6 +32,7 @@ require_command truncate
 require_command cp
 require_command printf
 require_command rm
+require_command strings
 
 require_file "$REPO_ROOT/boot/edsh6exe.bin"
 require_file "$REPO_ROOT/boot/zImage"
@@ -38,8 +40,16 @@ require_file "$REPO_ROOT/boot/imx28-pwsh6.dtb"
 require_file "$REPO_ROOT/boot/imx28-pwsh6-peripheral.dtb"
 require_file "$REPO_ROOT/boot/uEnv.a.txt"
 require_file "$REPO_ROOT/boot/uEnv.b.txt"
+require_file "$REPO_ROOT/boot/uEnv.auto-a.txt"
+require_file "$REPO_ROOT/boot/uEnv.auto-b.txt"
 require_file "$REPO_ROOT/fwup-ops.conf"
 require_file "$REPO_ROOT/fwup_include/provisioning.conf"
+
+# The automatic selector relies only on commands present in the pinned fixed
+# U-Boot. Fail clearly if the boot bundle is changed to an incompatible build.
+strings "$REPO_ROOT/boot/edsh6exe.bin" | grep -F 'env export [-t | -b | -c]' >/dev/null
+strings "$REPO_ROOT/boot/edsh6exe.bin" | grep -F 'env import [-d] [-t [-r] | -b | -c]' >/dev/null
+strings "$REPO_ROOT/boot/edsh6exe.bin" | grep -F 'mmc write addr blk# cnt' >/dev/null
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/nerves-brain-fwup.XXXXXX")
 trap 'rm -rf -- "$work_dir"' EXIT
@@ -53,6 +63,7 @@ boot_file="$work_dir/boot-file"
 upgrade_log="$work_dir/upgrade.log"
 ops_log="$work_dir/ops.log"
 fw_env_config="$work_dir/fw_env.config"
+boot_state_env_config="$work_dir/boot-state-fw_env.config"
 
 mkdir -p -- "$system_dir/images/fwup_include" "$system_dir/boot"
 printf 'ci-rootfs\n' > "$system_dir/images/rootfs.squashfs"
@@ -62,6 +73,8 @@ cp -- "$REPO_ROOT/boot/imx28-pwsh6-peripheral.dtb" \
     "$system_dir/boot/imx28-pwsh6-peripheral.dtb"
 cp -- "$REPO_ROOT/boot/uEnv.a.txt" "$system_dir/boot/uEnv.a.txt"
 cp -- "$REPO_ROOT/boot/uEnv.b.txt" "$system_dir/boot/uEnv.b.txt"
+cp -- "$REPO_ROOT/boot/uEnv.auto-a.txt" "$system_dir/boot/uEnv.auto-a.txt"
+cp -- "$REPO_ROOT/boot/uEnv.auto-b.txt" "$system_dir/boot/uEnv.auto-b.txt"
 
 NERVES_SYSTEM="$system_dir"
 BRAIN_BOOT_DIR="$REPO_ROOT/boot"
@@ -92,6 +105,7 @@ ops_tasks=$(fwup -l -i "$ops_firmware")
 printf '%s\n' "$ops_tasks"
 for task in factory-reset prevent-revert.a prevent-revert.b prevent-revert.fail \
     revert.a revert.b revert.fail status.ab status.ba status.aa status.bb status.fail \
+    status.try-ab status.try-ba \
     validate.a validate.b validate.fail; do
     printf '%s\n' "$ops_tasks" | grep -Fxq "$task" || {
         printf 'error: runtime fwup task not found: %s\n' "$task" >&2
@@ -144,22 +158,39 @@ NERVES_SERIAL_NUMBER=ci-serial fwup -a -d "$disk_image" -i "$firmware" -t comple
 assert_active_dtb "$REPO_ROOT/boot/imx28-pwsh6.dtb" HOST
 assert_boot_file_matches uEnv.a.txt "$REPO_ROOT/boot/uEnv.a.txt" 'slot A selector reference'
 assert_boot_file_matches uEnv.b.txt "$REPO_ROOT/boot/uEnv.b.txt" 'slot B selector reference'
-assert_boot_file_matches uEnv.txt "$REPO_ROOT/boot/uEnv.a.txt" 'active slot selector'
+assert_boot_file_matches uEnv.auto-a.txt "$REPO_ROOT/boot/uEnv.auto-a.txt" 'slot A automatic selector reference'
+assert_boot_file_matches uEnv.auto-b.txt "$REPO_ROOT/boot/uEnv.auto-b.txt" 'slot B automatic selector reference'
+assert_boot_file_matches uEnv.txt "$REPO_ROOT/boot/uEnv.auto-a.txt" 'active automatic slot selector'
 printf '%s 0x2000 0x2000\n' "$disk_image" > "$fw_env_config"
 if [ "$(fw_printenv -c "$fw_env_config" -n nerves_serial_number)" != ci-serial ]; then
     printf 'error: burn-time NERVES_SERIAL_NUMBER was not provisioned\n' >&2
+    exit 1
+fi
+printf '%s 0x4000 0x4000\n' "$disk_image" > "$boot_state_env_config"
+if [ "$(fw_printenv -c "$boot_state_env_config" -n brain_boot_state)" != a ]; then
+    printf 'error: fresh burn did not commit boot state A\n' >&2
+    exit 1
+fi
+fw_setenv -c "$boot_state_env_config" brain_boot_state try-b
+if [ "$(fw_printenv -c "$boot_state_env_config" -n brain_boot_state)" != try-b ]; then
+    printf 'error: 16 KiB one-shot boot state is not writable\n' >&2
+    exit 1
+fi
+fw_setenv -c "$boot_state_env_config" brain_boot_state a
+if [ "$(fw_printenv -c "$fw_env_config" -n nerves_serial_number)" != ci-serial ]; then
+    printf 'error: boot state update modified Nerves firmware metadata\n' >&2
     exit 1
 fi
 
 printf '==> usb_ncm selects peripheral DTB without changing slot selector\n'
 fwup -a -d "$disk_image" -i "$firmware" -t usb_ncm
 assert_active_dtb "$REPO_ROOT/boot/imx28-pwsh6-peripheral.dtb" NCM
-assert_boot_file_matches uEnv.txt "$REPO_ROOT/boot/uEnv.a.txt" 'active slot selector after usb_ncm'
+assert_boot_file_matches uEnv.txt "$REPO_ROOT/boot/uEnv.auto-a.txt" 'active slot selector after usb_ncm'
 
 printf '==> usb_host restores HOST DTB without changing slot selector\n'
 fwup -a -d "$disk_image" -i "$firmware" -t usb_host
 assert_active_dtb "$REPO_ROOT/boot/imx28-pwsh6.dtb" HOST
-assert_boot_file_matches uEnv.txt "$REPO_ROOT/boot/uEnv.a.txt" 'active slot selector after usb_host'
+assert_boot_file_matches uEnv.txt "$REPO_ROOT/boot/uEnv.auto-a.txt" 'active slot selector after usb_host'
 
 # The real upgrade.a/upgrade.b tasks require / to be mounted from a PW-SH6
 # rootfs slot. On the CI host they must fall through to the explicit guard task.

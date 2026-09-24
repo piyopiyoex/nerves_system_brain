@@ -1,0 +1,6 @@
+bootorder=sd
+brain_boot_state=a
+brain_boot_state_load=mmc dev ${sddev} && mmc read ${loadaddr} 0x20 0x20 && env import -c ${loadaddr} 0x4000 brain_boot_state
+brain_boot_state_save=env export -c ${loadaddr} brain_boot_state && mmc dev ${sddev} && mmc write ${loadaddr} 0x20 0x20
+brain_boot_prepare=setenv brain_boot_target ${brain_boot_state}; if run brain_boot_state_load; then if test "${brain_boot_state}" = "try-a"; then setenv brain_boot_state b; if run brain_boot_state_save; then setenv brain_boot_target a; else setenv brain_boot_target b; fi; elif test "${brain_boot_state}" = "try-b"; then setenv brain_boot_state a; if run brain_boot_state_save; then setenv brain_boot_target b; else setenv brain_boot_target a; fi; else setenv brain_boot_target ${brain_boot_state}; fi; fi; if test "${brain_boot_target}" = "b"; then setenv sdroot /dev/mmcblk1p3 rw rootwait; else setenv brain_boot_target a; setenv sdroot /dev/mmcblk1p2 rw rootwait; fi; echo Rootfs slot ${brain_boot_target}
+bootcmd=run brain_boot_prepare; for choice in $bootorder; do if run select$choice; then run mmcboot; fi; done; echo Failed to boot (X_X)

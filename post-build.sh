@@ -9,7 +9,7 @@ set -eu
 
 # Build the runtime operations archive used by Nerves.Runtime.FwupOps.
 mkdir -p "${TARGET_DIR}/usr/share/fwup"
-"${HOST_DIR}/usr/bin/fwup" \
+NERVES_SYSTEM="${NERVES_DEFCONFIG_DIR}" "${HOST_DIR}/usr/bin/fwup" \
     -c \
     -f "${NERVES_DEFCONFIG_DIR}/fwup-ops.conf" \
     -o "${TARGET_DIR}/usr/share/fwup/ops.fw"

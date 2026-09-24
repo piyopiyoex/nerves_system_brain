@@ -4,6 +4,11 @@ import Config
 # before the kiosk so SSH/network access survives application failures.
 config :logger, backends: [RingLogger]
 
+# Validate a tentative A/B update only after every release application starts.
+# If startup stalls, Erlang heart reboots after the guard timeout and U-Boot
+# selects the fallback slot that it armed before the tentative boot.
+config :nerves_runtime, startup_guard_enabled: true
+
 config :shoehorn,
   init: [:nerves_runtime, :nerves_pack]
 

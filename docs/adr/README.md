@@ -20,6 +20,7 @@
 | [0009](0009-host側のusbモード切り替えにfwup-taskを使う.md) | Linux PC から USB モードをどう選ぶか | `fwup` task を `mix burn --task` から適用する |
 | [0010](0010-legacy-deployment-pathを廃止する.md) | application の provisioning path をどうするか | `mix firmware` / `mix burn` に統一し、legacy SD/release path を廃止する |
 | [0011](0011-mix-uploadにはa-b-rootfsとuenv-selectorを使う.md) | `mix upload` をどう安全に実現するか | p2/p3 A/B rootfs、p4 persistent data、p1 `uEnv.txt` selector を使う |
+| [0012](0012-one-shot-boot-stateでautomatic-rollbackを行う.md) | 更新後の起動失敗からどう戻すか | one-shot boot state と Nerves Runtime StartupGuard で旧 slot へ戻す |
 
 これらは現在の採用判断であり、表にある標準化候補を自動的な TODO にはしない。
 各 ADR の「再評価条件」に該当したときに見直す。

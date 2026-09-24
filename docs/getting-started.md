@@ -224,7 +224,7 @@ p4 も upload では変更されないため、`/data` と NervesSSH host key �
 kernel / DTB / boot loader を変更した場合は `mix upload` ではなく `mix burn` を使用する。
 
 旧 p1+p2 layout の SD は `mix upload` 対象にしない。最初に current firmware を `mix burn` して A/B + p4 layout に
-作り直す。automatic rollback は現段階では実装していないため、起動不能時の manual recovery を含む詳細は
+作り直す。更新後は新 slot を one-shot で起動し、application startup が完了しなければ再起動後に旧 slot へ戻る。manual recovery を含む詳細は
 [`mix upload による firmware 更新`](mix-upload.md) を参照する。
 
 ## 9. うまく接続できない場合
