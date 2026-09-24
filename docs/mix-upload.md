@@ -39,6 +39,14 @@ p4              ext4 persistent application data
 fresh burn は slot A を起動する。`uEnv.txt` の `sdroot` が p2 / p3 のどちらを次回 boot するかを決める。
 起動中の slot は `/proc/cmdline` の `root=/dev/mmcblk1p2` / `p3` でも確認できる。
 
+製造時などに device serial number を設定する場合は、firmware を作り直さず burn 時に渡せる。
+
+```sh
+NERVES_SERIAL_NUMBER=brain-0001 mix burn
+```
+
+値は firmware archive には保存されず、`complete` task の provisioning hook が firmware metadata に書き込む。
+
 p4 は firmware metadata の application partition として定義する。fresh burn では filesystem signature を
 消去し、初回起動時に `Nerves.Runtime` が ext4 として format して `/root` に mount する。
 rootfs の `/data -> root` symlink により、`/data` 配下は p4 に置かれる。NervesSSH の host key も
@@ -105,6 +113,28 @@ upload が selector 切り替え前に中断した場合は、current slot を�
 automatic rollback は現段階では実装していない。update 自体が成功しても、新 application が起動後に
 失敗するケースは自動では前 slot に戻らない。
 
+## Nerves.Runtime の firmware 操作
+
+System rootfs は `/usr/share/fwup/ops.fw` を含むため、`Nerves.Runtime` の standard firmware slot API を使える。
+
+```elixir
+Nerves.Runtime.firmware_slots()
+# => %{active: "a", next: "a"}
+
+Nerves.Runtime.revert()
+# valid な inactive slot を次回 boot に選び、再起動する
+
+Nerves.Runtime.validate_firmware()
+# running slot を validated として記録する
+```
+
+`Nerves.Runtime.FwupOps.prevent_revert/0` は inactive slot を無効化し、
+`Nerves.Runtime.FwupOps.factory_reset/0` は p4 の filesystem signature を消去して再起動する。
+後者は次回起動時に p4 を再 format するため、persistent data を失う破壊的な操作である。
+
+`revert/0` は利用者が明示的に呼ぶ recovery 操作である。health check、boot count、timeout による
+automatic rollback は引き続き実装しない。
+
 ## manual recovery
 
 新しい slot が boot しない場合は電源を切り、microSD を Linux PC に接続する。FAT p1 には両 slot の
@@ -135,10 +165,12 @@ PW-SH6 と `hello_kiosk` で次を確認した。
 - p4 が `/root` に ext4 で mount され、A/B 往復後も mount が維持された。
 - `/data` に作成した確認用 file が A/B 往復後も残った。
 - NervesSSH の ED25519 host key が A/B 往復後も同一で、`known_hosts` の削除を必要としなかった。
+- `ops.fw` 経由の `firmware_slots/0` / status が current / next slot を返した。
+- reboot を抑止した明示的な revert で A -> B を予約し、validate で A -> A に戻せた。
 - host-side `scripts/check_fwup.sh` で `complete`、USB mode task、`upgrade` guard を確認した。
 
-この確認では、意図的な upload 中断、NCM 接続中の remote upload、起動不能 firmware を使った manual recovery は
-実施していない。automatic rollback も現在の scope には含めない。
+この確認では、意図的な upload 中断、NCM 接続中の remote upload、起動不能 firmware を使った manual recovery、
+runtime の `prevent-revert` / `factory-reset` は実施していない。automatic rollback も現在の scope には含めない。
 
 検証の詳細は
 [2026-09-24 mix upload / persistent data 実機検証](worklog/20260924-mix-upload-real-device-verification.md) を参照する。

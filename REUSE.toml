@@ -15,6 +15,8 @@ path = [
   "examples/hello_kiosk/mise.toml",
   "examples/hello_kiosk/config/logo.txt",
   "examples/hello_kiosk/rootfs_overlay/etc/iex.exs",
+  "fwup_include/provisioning.conf",
+  "fwup-ops.conf",
   "nerves_defconfig",
   "rootfs_overlay/etc/erlinit.config",
   "rootfs_overlay/etc/fw_env.config",
@@ -71,6 +73,7 @@ path = [
   "examples/hello_kiosk/test/*.c",
   "examples/hello_kiosk/test/*.exs",
   "rootfs_overlay/usr/bin/*",
+  "post-build.sh",
   "scripts/*.exs",
   "sd/*.sh",
   "sd/lib/*.sh"

@@ -164,8 +164,47 @@ git diff --check
 - NervesSSH host key persistence
 - interactive SSH / IEx (`shell_history disabled`)
 
-この検証では、意図的な upload 中断、NCM 接続中の remote upload、起動不能 firmware を使った manual recovery は
-実施していない。automatic rollback も現在の設計には含めない。
+## standard runtime firmware operations
+
+追加レビューで、`Nerves.Runtime.FwupOps` が参照する `/usr/share/fwup/ops.fw` が System に無く、
+`Nerves.Runtime.firmware_slots/0` が firmware metadata の heuristic fallback を使っていることを確認した。
+
+System の post-build hook で `fwup-ops.conf` から `ops.fw` を生成するようにし、再構築した firmware を
+slot B から upload した。slot A で再起動後、次を確認した。
+
+```elixir
+File.exists?("/usr/share/fwup/ops.fw")
+# => true
+
+Nerves.Runtime.firmware_slots()
+# => %{active: "a", next: "a"}
+
+Nerves.Runtime.FwupOps.status()
+# => {:ok, %{active: "a", next: "a"}}
+```
+
+明示的な revert と validate は、再起動を抑止して selector の往復を確認した。
+
+```elixir
+Nerves.Runtime.revert(reboot: false)
+# => :ok
+
+Nerves.Runtime.firmware_slots()
+# => %{active: "a", next: "b"}
+
+Nerves.Runtime.validate_firmware()
+# => :ok
+
+Nerves.Runtime.firmware_slots()
+# => %{active: "a", next: "a"}
+```
+
+この確認後も `/data/persistence-test` は `{:ok, "survives-ab-update"}` を返した。
+`prevent-revert` と `factory-reset` は破壊的なため実機では実行していない。host-side の fwup check では
+runtime operation task の存在、非 target host 上での guard、burn-time `NERVES_SERIAL_NUMBER` provisioning を確認した。
+
+この検証では、意図的な upload 中断、NCM 接続中の remote upload、起動不能 firmware を使った manual recovery、
+runtime の `prevent-revert` / `factory-reset` は実施していない。automatic rollback も現在の設計には含めない。
 
 現在の設計判断は [ADR 0011](../adr/0011-mix-uploadにはa-b-rootfsとuenv-selectorを使う.md)、
 利用手順は [mix upload による firmware 更新](../mix-upload.md) を参照する。

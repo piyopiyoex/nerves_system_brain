@@ -37,6 +37,12 @@ standard `mix upload` の transport をそのまま使い、rootfs を A/B 化�
 - `mix upload` は shared p1 の `zImage`、DTB、`edsh6exe.bin` と p4 を更新しない。現在選択している HOST / NCM
   mode と persistent application data を維持する。kernel / DTB / loader を変更する System update は `mix burn` で行う。
 - upload 成功後の reboot は `ssh_subsystem_fwup` の標準 success callback に任せる。
+- System rootfs に `fwup-ops.conf` から生成した `/usr/share/fwup/ops.fw` を含める。
+  `Nerves.Runtime.FwupOps` の status / revert / prevent-revert / validate / factory-reset は、同じ
+  `uEnv.txt` selector と firmware metadata を操作する。runtime からの明示的な revert は提供するが、
+  boot failure を検出する automatic rollback は提供しない。
+- `complete` task は standard provisioning include を読み込み、burn 時の `NERVES_SERIAL_NUMBER` を
+  firmware archive に埋め込まず metadata へ設定できるようにする。
 - 現段階では automatic health check / rollback を導入しない。書き込みが成功した slot は validated として
   metadata に記録する。新 firmware が boot しない場合は microSD を Linux PC に接続し、p1 の
   `uEnv.a.txt` / `uEnv.b.txt` から前の slot を `uEnv.txt` に戻して recovery する。
@@ -66,6 +72,8 @@ ADR 0007 の「A/B update を別設計とし `mix upload` を有効化しない�
 - fresh `mix burn` が作る media は FAT p1 + ext4 p2(A) + ext4 p3(B) + ext4 p4(data) になる。
 - current layout 導入前に作った SD は、`mix upload` の前に再度 `mix burn` する必要がある。
 - application-only update は `mix firmware` の後に `mix upload nerves.local` で反映できる。
+- `Nerves.Runtime.firmware_slots/0` は heuristic fallback ではなく `ops.fw` の status task を使い、
+  `Nerves.Runtime.revert/0` で valid な inactive slot を明示的に次回 boot へ選べる。
 - p4 は upload では更新されず、`/data` と NervesSSH host key は slot A/B 間で継続する。
 - fresh `mix burn` は p4 を再初期化するため、p4 の data を保持したい場合は事前に退避が必要になる。
 - upload 後も p1 の active DTB は変わらないため、NCM で接続中なら reboot 後も NCM、HOST なら HOST を

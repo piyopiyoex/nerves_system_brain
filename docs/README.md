@@ -48,6 +48,8 @@ standard `mix upload` で inactive slot へ更新し、p4 は保持する。ア�
 - host 側の USB mode 選択も `fwup` task を `mix burn --task` から適用する。
 - application firmware の remote update は `NervesSSH` / `ssh_subsystem_fwup` と A/B rootfs を使い、`mix upload` を提供する。
 - persistent application data は Nerves firmware metadata で p4 を `/root` に mount し、`/data -> root` を通して slot 間で共有する。
+- `Nerves.Runtime.FwupOps` の standard `ops.fw` を提供し、slot status、明示的な revert / validation、factory reset を扱う。
+- `NERVES_SERIAL_NUMBER` / `NERVES_PROVISIONING` を使った burn-time provisioning hook を提供する。
 
 ## PW-SH6 固有として受け入れている部分
 

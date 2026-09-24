@@ -34,6 +34,8 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `mix.exs`                                       | System package metadata とローカル System build 用 `brain.system.build` alias      |
 | `toolchain/`                                    | `o/host` を再利用・artifact 化する `nerves_toolchain_brain`                       |
 | `fwup.conf`                                     | FAT p1 + ext4 p2/p3(A/B) + p4(data) の firmware 定義、`mix upload`、HOST / NCM task |
+| `fwup-ops.conf`                                 | `Nerves.Runtime.FwupOps` 用の status / revert / validate / factory-reset task       |
+| `post-build.sh`                                 | runtime `ops.fw` と burn-time provisioning include を System rootfs / artifact に追加 |
 | `scripts/rel2fw.sh`                             | Nerves release を ext4 rootfs に統合して `.fw` を生成する System 固有 adapter     |
 | `rootfs_overlay/etc/erlinit.config`             | PW-SH6 の bring-up / USB NCM 開発用設定（[詳細](docs/erlinit.md)）                |
 | `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植）                     |
@@ -161,6 +163,10 @@ mix upload nerves.local
 active DTB も維持する。p4 は `/root` に mount され、rootfs の `/data -> root` により NervesSSH host key なども
 slot 切り替えをまたいで保持される。System-level boot asset を変更した場合は `mix burn` を使用する。fresh `mix burn` は p4 も
 再作成するため、persistent data を保持したままの System update にはならない。automatic rollback は現段階では持たない。
+
+System rootfs には standard `Nerves.Runtime.FwupOps` 用の `ops.fw` も含める。これにより
+`Nerves.Runtime.firmware_slots/0`、明示的な `Nerves.Runtime.revert/0`、validation、factory reset を利用できる。
+これらは runtime の管理操作であり、boot failure を検出して自動で前 slot に戻す機能ではない。
 
 2026-09-24 に PW-SH6 実機で A -> B -> A の往復、p4 mount、`/data` の継続、SSH host key の継続を確認した。
 詳細と recovery 手順は [`docs/mix-upload.md`](docs/mix-upload.md)、検証記録は
