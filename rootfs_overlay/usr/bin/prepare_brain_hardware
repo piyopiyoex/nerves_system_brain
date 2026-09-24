@@ -1,0 +1,21 @@
+#!/bin/sh
+# Run PW-SH6-specific hardware preparation before BEAM starts.
+#
+# erlinit supports a single --pre-run-exec command. Keep the individual
+# hardware helpers separate and compose them here rather than mixing hardware
+# preparation back into networking policy.
+
+run_helper()
+{
+    helper=$1
+
+    if ! "$helper"; then
+        echo "prepare_brain_hardware: $helper failed" >&2
+    fi
+}
+
+run_helper /usr/bin/restore_brain_rtc
+run_helper /usr/bin/enable_ethernet_gadget
+run_helper /usr/bin/enable_bt_speaker
+
+exit 0

@@ -2,7 +2,7 @@
 
 ## 状態
 
-採用
+採用（0006 で段階移行を再評価中）
 
 ## 背景
 
@@ -43,3 +43,11 @@
 - 現在の rootfs / OTP / release の分割配置が開発・運用上の負担になった場合。
 
 再評価条件に該当するまでは、Mix System package や `fwup` の未導入を未完了タスクとは扱わない。
+
+## 2026-09-20 追記
+
+`examples/hello_kiosk/` 以外の Nerves application からも通常の System dependency として
+利用したい要求が出てきたため、本 ADR の再評価条件に該当した。
+
+新しい方針は ADR 0006 に分け、現在動作している standalone build / manual deployment path は
+当面維持しながら、まず application development flow だけを Nerves 標準へ近づける。

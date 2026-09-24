@@ -12,11 +12,14 @@ LCD 854×480）向けのカスタム Nerves システム。
 動作例として `examples/hello_kiosk/` に `hello_kiosk_brain` を同梱する。
 
 設計の全体像と「標準 Nerves に寄せる部分 / Brain 固有として残す部分」の考え方は
-[`docs/README.md`](docs/README.md) を参照。
+[アーキテクチャ概要](docs/README.md) を参照。
+
+初めて実機で動かす場合は [初回セットアップガイド](docs/getting-started.md) を参照。
 
 ## 方針
 
-- `nerves_system_br`（v1.34.3 / Buildroot 2026.05.2）を standalone で使用
+- `nerves_system_br`（v1.34.3 / Buildroot 2026.05.2）を基盤にし、通常の Nerves System
+  dependency として `MIX_TARGET=brain` から参照する
 - **カーネル・U-Boot・DTB はビルドせず**、[brain-hackers](https://github.com/brain-hackers)
   の成果物（buildbrain 2026-03-25 リリース）を流用
 - ツールチェーンは Bootlin `armv5-eabi--glibc--stable`（soft-float）
@@ -28,32 +31,44 @@ LCD 854×480）向けのカスタム Nerves システム。
 | パス                                            | 内容                                                                              |
 | ----------------------------------------------- | --------------------------------------------------------------------------------- |
 | `nerves_defconfig`                              | Buildroot 設定（arm926t / Bootlin armv5 / ext4 / カーネル非ビルド）               |
+| `mix.exs`                                       | System package metadata とローカル System build 用 `brain.system.build` alias      |
+| `toolchain/`                                    | `o/host` を再利用・artifact 化する `nerves_toolchain_brain`                       |
+| `fwup.conf`                                     | FAT p1 + ext4 p2 の firmware 定義と HOST / NCM 切り替え task                      |
+| `scripts/rel2fw.sh`                             | Nerves release を ext4 rootfs に統合して `.fw` を生成する System 固有 adapter     |
 | `rootfs_overlay/etc/erlinit.config`             | PW-SH6 の bring-up / USB NCM 開発用設定（[詳細](docs/erlinit.md)）                |
 | `rootfs_overlay/usr/bin/enable_ethernet_gadget` | configfs で NCM ガジェットを構成（`brain-config` 相当を移植）                     |
-| `busybox.fragment`                              | USB NCM setup に必要な BusyBox `ln` applet を追加                                 |
-| `sd/imx28-pwsh6-peripheral.{dts,dtb}`           | USB NCM 用の peripheral 構成（[用途別の DTB 選択](sd/README.md)）                 |
-| `sd/*.sh`                                       | SD の作成・配備スクリプト                                                         |
-| `sd/deploy_release.sh`                          | 互換性のある Elixir release を `/srv/erlang` へ配置                               |
-| `docs/release-deployment.md`                    | release の要件と System / application の責務分担                                  |
+| `busybox.fragment`                              | USB NCM / mode switch に必要な BusyBox `ln` / `tr` / `sync` applet を追加                 |
+| `boot/imx28-pwsh6-peripheral.{dts,dtb}`        | USB NCM 用 Device Tree（[HOST / NCM の切り替え](docs/usb-mode.md)）              |
+| `docs/usb-mode.md`                              | HOST / NCM の切り替え方と Device Tree の管理方針                                |
 | `examples/hello_kiosk/`                         | PW-SH6 で動作確認済みの Elixir KIOSK 動作例                                       |
 | `docs/`                                         | アーキテクチャ概要と ADR（設計判断）                                              |
 
 ## ビルド
 
-```sh
-# リポジトリの親ディレクトリに nerves_system_br v1.34.3 を取得
-git clone --branch v1.34.3 --depth 1 \
-  https://github.com/nerves-project/nerves_system_br.git ../nerves_system_br
+ローカル System build は project-local な Mix alias から行う。alias は `mix.exs` で pin した
+`nerves_system_br` dependency を使い、`create-build.sh` による Buildroot 設定更新と `make` を順に実行する。
 
-# Buildroot を初期化してビルド
-../nerves_system_br/create-build.sh nerves_defconfig o
-make -C o           # OTP 29 の armv5 クロスビルドを含むため時間がかかる
+Erlang / Elixir のバージョンは `.tool-versions` に合わせ、mise / asdf など任意の
+バージョンマネージャーで準備する。System build alias は必要な Mix dependency も取得するため、
+fresh clone からそのまま実行できる。
+
+```sh
+mix brain.system.build
 ```
 
-USB NCM の configfs setup に必要な `ln` は `busybox.fragment` で BusyBox に追加する。
+既存の `o/` を捨てて完全に作り直す場合は `--clean` を付ける。
+
+```sh
+mix brain.system.build --clean
+```
+
+初回や clean build は OTP 29 の ARMv5 クロスビルドを含むため時間がかかる。
+通常は `create-build.sh` や `make -C o` を直接実行する必要はない。
+
+USB NCM の configfs setup に必要な `ln` と `tr`、USB mode 切り替えに必要な `sync` は `busybox.fragment` で BusyBox に追加する。
 `enable_ethernet_gadget` は標準の `ln -s` を使用し、独自 helper は必要としない。
 
-### erlinit bring-up profile
+### erlinit 立ち上げ用プロファイル
 
 現在の `erlinit.config` は、PW-SH6 の実機 bring-up と USB NCM を使った開発を優先した
 構成である。詳細な起動ログ、LCD コンソール、Erlang 終了後の調査用 shell などは
@@ -62,96 +77,79 @@ USB NCM の configfs setup に必要な `ln` は `busybox.fragment` で BusyBox 
 USB NCM 関連の設定も開発用通信経路の一部であり、製品運用で常設することを意味しない。
 各設定の役割と起動の流れは [`docs/erlinit.md`](docs/erlinit.md) を参照。
 
-### 動作例（任意）
+### 動作例: hello_kiosk
 
-Nerves システム自体のビルドは `examples/` に依存しない。実機で動作確認する場合だけ、
-`examples/hello_kiosk/` のリリースを構築する。`build_release.sh` は `o/staging` から
-ARMv5 用 OTP アプリを取り込み、同じツールチェーンで `priv/kiosk_nif.so` も
-クロスコンパイルする。
+Nerves システム自体のビルドは `examples/` に依存しない。実機で動作確認する場合は、
+`examples/hello_kiosk/` を通常の Nerves application としてビルドする。
 
 ```sh
 cd examples/hello_kiosk
-./scripts/setup_ssh.sh
-./scripts/build_release.sh
+export MIX_TARGET=brain
+
+mix deps.get
+mix firmware
+mix burn
 ```
 
-別の `nerves_system_brain` を参照する場合は `NERVES_SYSTEM_BRAIN_DIR`、同じリポジトリで
-別の Buildroot 出力を使う場合は `NERVES_BUILD_DIR` を指定できる。
+この repository 内の example は `../..` の `nerves_system_brain` を local path dependency として
+参照する。System / toolchain package を公開した後は version dependency へ置き換えても、application 側の
+`MIX_TARGET=brain` / `mix firmware` / `mix burn` の流れは変えない。
+
+この経路では `Nerves.Release.erts/0` を使い、release を `/srv/erlang` へ含めた ext4 rootfs を
+`.fw` として生成する。`complete` task は FAT p1 と ext4 p2 を作成し、pinned buildbrain release から
+取得・checksum 検証した boot loader / kernel / DTB と application release をまとめて配置する。
+fresh burn からの HOST boot、KIOSK 経由の HOST / NCM 切り替え、両モードの network 接続まで
+PW-SH6 実機で確認済みである。
+
+既存の `o/` から通常の Nerves System / toolchain artifact も生成できる。
 
 ```sh
-NERVES_SYSTEM_BRAIN_DIR=/path/to/nerves_system_brain ./scripts/build_release.sh
-NERVES_BUILD_DIR=/path/to/build-output ./scripts/build_release.sh
+mix deps.get
+scripts/fetch_boot_assets.sh
+mix nerves.artifact nerves_toolchain_brain --path /tmp/brain-artifacts
+mix nerves.artifact --path /tmp/brain-artifacts
 ```
 
-詳細は [`examples/hello_kiosk/README.md`](examples/hello_kiosk/README.md) を参照。
+生成物は `nerves_system_brain-portable-<version>-<checksum>.tar.gz` と host 別の
+`nerves_toolchain_brain-<host>-<version>-<checksum>.tar.xz`。local artifact の取得と target compile /
+`mix firmware` は確認済みで、GitHub release への公開は別作業とする。
 
-## SD カードの作成
+## SD カードと USB モード
 
-ベースは brain-hackers の配布イメージ（**このリポジトリには含めない**。
-[buildbrain releases](https://github.com/brain-hackers/buildbrain/releases) から
-`sdimage-*.zip` を入手）。
-
-SD カード用スクリプトは Linux 上で実行し、対象となるディスク全体のデバイス名を
-必ず引数で指定する。パーティション（`/dev/sdX1` など）は指定できない。
-`populate_sd.sh` は対象の第2パーティションを再初期化し、既存内容をすべて消去する。
+通常の initial provisioning は application directory から `mix burn` を使う。brain-hackers の
+base image を手動で先に書き込む必要はない。
 
 ```sh
-# 接続した記憶装置を確認する
-lsblk -o NAME,PATH,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINTS,MODEL
-
-# 1) buildbrain のベースイメージを SD カードへ書き込む
-# 2) p2 を Nerves rootfs + OTP に差し替える
-sudo bash sd/populate_sd.sh /dev/sdX
-
-# 既定の o/ 以外を使用する場合はビルド出力ディレクトリも指定する
-sudo bash sd/populate_sd.sh /dev/sdX /path/to/build-output
-
-# 3) アプリケーション release を配置する
-sudo bash sd/deploy_release.sh /dev/sdX /path/to/release
+cd examples/hello_kiosk
+export MIX_TARGET=brain
+mix firmware
+mix burn
 ```
 
-`deploy_release.sh` はアプリケーション名に依存せず、完成済み release の内容を
-`/srv/erlang` へ配置する。同梱の `hello_kiosk` を配置する場合は次のように指定する。
+`complete` task は blank SD に MBR、FAT boot partition、ext4 rootfs partition を作り、HOST を
+既定 USB mode として配置する。
+
+USB0 のユーザー向けモードは **HOST** と **NCM** の2つに統一する。Device Tree ではそれぞれ
+`dr_mode = "host"` / `dr_mode = "peripheral"` に対応し、同時には使用できない。
+
+Linux PC に挿した SD の次回起動 mode を変更する場合は、独自 mount script ではなく firmware の
+`fwup` task を `mix burn --task` から適用する。
 
 ```sh
-sudo bash sd/deploy_release.sh /dev/sdX \
-  examples/hello_kiosk/_build/prod/rel/hello_kiosk_brain
+mix burn --device /dev/sdX --task usb_host
+mix burn --device /dev/sdX --task usb_ncm
 ```
 
-release の要件と System / application の責務分担は
-[`docs/release-deployment.md`](docs/release-deployment.md) を参照。
-
-各スクリプトはパーティションとラベルを検査し、実行前に対象デバイスの情報を表示する。
-続行には表示されたデバイス名の再入力が必要。自動マウント済みの対象パーティションは
-処理前にアンマウントし、異常終了時にもスクリプトが作成したマウントを解除する。
-
-`/dev/mmcblk0` など末尾が数字のデバイスでは、パーティション名の `p1`、`p2` を
-自動的に補う。
-
-USB NCM 関連のファイルだけを既存の SD カードへ反映する補助スクリプトも、同様に
-対象デバイスを指定して実行する。
-
-```sh
-sudo bash sd/update_erlinit.sh /dev/sdX
-sudo bash sd/update_gadget_v2.sh /dev/sdX
-```
-
-### PW-SH6 の Device Tree 選択
-
-USB0 は用途によって host / peripheral のどちらかを選択する。brain-hackers の
-`imx28-pwsh6.dtb` は **host** 構成で、有線 LAN、USB Audio、USB 接続の WiFi / BLE
-などを使用するときの基準となる。USB NCM で開発用計算機と接続するときは、本リポジトリの
-`sd/imx28-pwsh6-peripheral.dtb` を使用する。
-
-`populate_sd.sh` は DTB を選択・置換しない。DTS / DTB の対応、再生成方法、SD カードへの
-配置方法は [`sd/README.md`](sd/README.md) を参照。
+PW-SH6 上では `brain-usb-mode {host|ncm}` を使う。KIOSK の USB 切替画面も同じ helper を利用し、
+application 独自の DTB や SD mount 処理は持たない。DTB の正本、切り替え方法、再生成方法は
+[`docs/usb-mode.md`](docs/usb-mode.md) を参照する。
 
 ## SSH / crng メモ
 
-初期実装では、起動直後の乱数初期化と SSH の重い crypto 処理が UI を長時間ブロックする
-問題があった。現在の `hello_kiosk` では SSH の遅延起動・モジュール分散ロード・軽量な
-パスワード検証により回避している。調査経緯は
-`examples/hello_kiosk/docs/worklog/20260903_SSH起動不能_セカンドオピニオン質問書.md` を参照。
+初期実装では独自 OTP `:ssh` daemon の crypto 初期化が UI を長時間ブロックしたため、遅延起動などの
+PW-SH6 固有対策を入れていた。現在は `NervesSSH` へ移行し、既知の PBKDF2 問題だけを
+軽量 `pwdfun` override として残している。NervesSSH / IEx / SFTP 接続は実機確認済みで、
+過去の調査経緯は worklog に残す。
 
 ## クレジット / ライセンス
 
@@ -162,7 +160,7 @@ CC0-1.0 として整理している。ファイル単位の著作権・ライセ
 
 カーネル・U-Boot・配布イメージは
 [brain-hackers](https://github.com/brain-hackers) プロジェクトの成果物（本リポジトリには
-再配布用バイナリを含めない）。`sd/` の Device Tree ソースと生成済み DTB は
+再配布用バイナリを含めない）。`boot/` の Device Tree ソースと生成済み DTB は
 [brain-hackers/linux-brain](https://github.com/brain-hackers/linux-brain) 由来で、
 元の GPL-2.0-or-later の扱いを保持している。
 

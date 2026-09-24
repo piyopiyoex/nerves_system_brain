@@ -119,7 +119,7 @@ defmodule HelloKioskBrain.Fb do
     lw = byte_size(line)
 
     if px >= 0 and px + lw <= @stride do
-      <<pre::binary-size(px), _::binary-size(lw), post::binary>> = Map.fetch!(rows, y)
+      <<pre::binary-size(^px), _::binary-size(^lw), post::binary>> = Map.fetch!(rows, y)
       Map.put(rows, y, <<pre::binary, line::binary, post::binary>>)
     else
       rows

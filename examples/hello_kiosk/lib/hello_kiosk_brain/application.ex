@@ -4,14 +4,17 @@ defmodule HelloKioskBrain.Application do
 
   @impl true
   def start(_type, _args) do
-    # 起動順: Battery/Input を先に(Kiosk.init が Input.subscribe を呼ぶため)、
-    # SshDaemon を Kiosk より前に(Kiosk=NIF 描画が起動に失敗しても SSH を確保)。
+    HelloKioskBrain.BootTrace.log("application start")
+
+    # SSH is started by shoehorn through NervesSSH before this application.
+    # Battery/Input must start before Kiosk because Kiosk.init subscribes to Input.
     children = [
       HelloKioskBrain.Battery,
       HelloKioskBrain.Input,
-      HelloKioskBrain.SshDaemon,
-      HelloKioskBrain.Kiosk
+      HelloKioskBrain.KioskLauncher
     ]
+
+    HelloKioskBrain.BootTrace.log("starting supervisor children")
 
     opts = [strategy: :one_for_one, name: HelloKioskBrain.Supervisor]
     Supervisor.start_link(children, opts)

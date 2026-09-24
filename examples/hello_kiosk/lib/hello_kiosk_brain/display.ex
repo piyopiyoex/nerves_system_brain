@@ -14,44 +14,49 @@ defmodule HelloKioskBrain.Display do
   @impl true
   def init(_opts) do
     unbind_fbcon()
-    {:ok, fd} = Fb.open()
 
     bg = Fb.color(0, 24, 48)
     fg = Fb.color(255, 255, 255)
     accent = Fb.color(255, 160, 0)
 
-    Fb.fill_screen(fd, bg)
+    fb = Fb.new() |> Fb.fill_screen(bg)
 
     title = "NERVES ON BRAIN"
     tw = Fb.text_width(title, 5)
-    Fb.draw_text(fd, div(Fb.width() - tw, 2), 150, title, accent, bg, 5)
+    {fb, _} = Fb.draw_text(fb, div(Fb.width() - tw, 2), 150, title, accent, bg, 5)
 
     sub = "PW-SH6 / OTP 29 / ELIXIR"
     sw = Fb.text_width(sub, 2)
-    Fb.draw_text(fd, div(Fb.width() - sw, 2), 210, sub, fg, bg, 2)
+    {fb, _} = Fb.draw_text(fb, div(Fb.width() - sw, 2), 210, sub, fg, bg, 2)
+    :ok = Fb.flush(fb)
 
-    state = %{fd: fd, bg: bg, fg: fg, accent: accent, ticks: 0, last_ip: nil}
+    state = %{fb: fb, bg: bg, fg: fg, accent: accent, ticks: 0, last_ip: nil}
     send(self(), :tick)
     {:ok, state}
   end
 
   @impl true
-  def handle_info(:tick, %{fd: fd, bg: bg, fg: fg, accent: accent, ticks: n} = state) do
+  def handle_info(:tick, %{fb: fb, bg: bg, fg: fg, accent: accent, ticks: n} = state) do
     # 右上: usb0 の IP（変化したときだけ再描画 = チラつき防止）
     ip = ip_string()
 
-    if ip != state.last_ip do
-      iw = Fb.text_width(ip, 2)
-      Fb.fill_rect(fd, Fb.width() - 300, 8, 300 - 12, Fb.text_height(2), bg)
-      Fb.draw_text(fd, Fb.width() - iw - 16, 8, ip, accent, bg, 2)
-    end
+    fb =
+      if ip != state.last_ip do
+        iw = Fb.text_width(ip, 2)
+        fb = Fb.fill_rect(fb, Fb.width() - 300, 8, 300 - 12, Fb.text_height(2), bg)
+        {fb, _} = Fb.draw_text(fb, Fb.width() - iw - 16, 8, ip, accent, bg, 2)
+        fb
+      else
+        fb
+      end
 
     # 左下: 稼働秒数
     up = "UP " <> Integer.to_string(n) <> " S"
-    Fb.draw_text(fd, 16, Fb.height() - 24, up, fg, bg, 2)
+    {fb, _} = Fb.draw_text(fb, 16, Fb.height() - 24, up, fg, bg, 2)
+    :ok = Fb.flush(fb)
 
     Process.send_after(self(), :tick, @tick_ms)
-    {:noreply, %{state | ticks: n + 1, last_ip: ip}}
+    {:noreply, %{state | fb: fb, ticks: n + 1, last_ip: ip}}
   end
 
   # fbcon(カーネルコンソール)を fb0 から切り離す。放置するとログ文字列が

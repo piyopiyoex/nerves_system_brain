@@ -12,8 +12,12 @@ path = [
   "examples/hello_kiosk/.gitignore",
   "examples/hello_kiosk/.tool-versions",
   "examples/hello_kiosk/mise.toml",
+  "examples/hello_kiosk/config/logo.txt",
+  "examples/hello_kiosk/rootfs_overlay/etc/iex.exs",
   "nerves_defconfig",
-  "rootfs_overlay/etc/erlinit.config"
+  "rootfs_overlay/etc/erlinit.config",
+  "rootfs_overlay/etc/fw_env.config",
+  "toolchain/.formatter.exs"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "None"
@@ -23,7 +27,7 @@ SPDX-License-Identifier = "CC0-1.0"
 [[annotations]]
 path = [
   "README.md",
-  "sd/README.md",
+  "boot/README.md",
   "docs/*.md",
   "docs/adr/*.md",
   "examples/hello_kiosk/README.md",
@@ -32,9 +36,7 @@ path = [
   "examples/hello_kiosk/docs/adr/*.md",
   "examples/hello_kiosk/docs/worklog/*.md",
   "examples/hello_kiosk/docs/worklog/assets/kiosk_*.png",
-  "examples/hello_kiosk/docs/worklog/assets/lovyangfx_ja_phase0.png",
-  "examples/hello_kiosk/priv/ssh/README.md",
-  "examples/hello_kiosk/priv/dtb/README.md"
+  "examples/hello_kiosk/docs/worklog/assets/lovyangfx_ja_phase0.png"
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 nerves_system_brain contributors"
@@ -66,7 +68,7 @@ path = [
   "examples/hello_kiosk/src/*.c",
   "examples/hello_kiosk/test/*.c",
   "examples/hello_kiosk/test/*.exs",
-  "rootfs_overlay/usr/bin/enable_ethernet_gadget",
+  "rootfs_overlay/usr/bin/*",
   "scripts/*.exs",
   "sd/*.sh",
   "sd/lib/*.sh"
@@ -103,9 +105,8 @@ SPDX-License-Identifier = "BSD-2-Clause AND CC-BY-4.0"
 # Device Tree sources and compiled blobs derived from brain-hackers/linux-brain.
 [[annotations]]
 path = [
-  "sd/*.dts",
-  "sd/*.dtb",
-  "examples/hello_kiosk/priv/dtb/*.dtb"
+  "boot/*.dts",
+  "boot/*.dtb"
 ]
 precedence = "override"
 SPDX-FileCopyrightText = [

@@ -50,7 +50,7 @@ defmodule HelloKioskBrain.Kiosk do
   # ヘッダ左端の機種名(DTB から自動認識)の右に置く画面タイトルの開始 x / 読めないときの表示
   @title_x 110
   @model_fallback "Brain"
-  # ホーム「USB」行のボタン領域(システム情報 8 行目、値の部分)と、USB 役割切替ダイアログの部品
+  # ホーム「USB」行のボタン領域(システム情報 8 行目、値の部分)と、USB モード切替ダイアログの部品
   @usb_row_btn {196, 384, 300, 36}
   @usb_opt_host {80, 150, 330, 110}
   @usb_opt_ncm {444, 150, 330, 110}
@@ -90,7 +90,7 @@ defmodule HelloKioskBrain.Kiosk do
       last_touch: nil,
       last_key: nil,
       devmem: devmem,
-      # USB 役割ダイアログ: 選択中(:host | :peripheral)と結果メッセージ
+      # USB モードダイアログ: 選択中(:host | :ncm)と結果メッセージ
       usb_sel: :host,
       usb_msg: nil
     }
@@ -139,11 +139,11 @@ defmodule HelloKioskBrain.Kiosk do
     end
   end
 
-  # USB 役割ダイアログ: HOST / NCM の選択 → 「リブート実行」で DTB 差し替え+再起動、「キャンセル」でホームへ
+  # USB モードダイアログ: HOST / NCM の選択 → 「リブート実行」で DTB 差し替え+再起動、「キャンセル」でホームへ
   defp on_touch(%{screen: :usb_dialog} = st, x, y) do
     cond do
       in_rect?(x, y, @usb_opt_host) -> repaint(%{st | usb_sel: :host})
-      in_rect?(x, y, @usb_opt_ncm) -> repaint(%{st | usb_sel: :peripheral})
+      in_rect?(x, y, @usb_opt_ncm) -> repaint(%{st | usb_sel: :ncm})
       in_rect?(x, y, @usb_cancel) -> go(st, :home)
       in_rect?(x, y, @usb_go) -> usb_switch(st)
       true -> {:noreply, st}
@@ -161,11 +161,11 @@ defmodule HelloKioskBrain.Kiosk do
           idx -> bar_action(st, Enum.at(@bar, idx))
         end
 
-      # ホームの「USB」行(ボタン)→ 役割切替ダイアログ
+      # ホームの「USB」行(ボタン)→ モード切替ダイアログ
       st.screen == :home and in_rect?(x, y, @usb_row_btn) ->
         opt(HelloKioskBrain.Audio, :touch)
         cur = UsbMode.current()
-        sel = if cur in [:host, :peripheral], do: cur, else: :host
+        sel = if cur in [:host, :ncm], do: cur, else: :host
         repaint(%{st | screen: :usb_dialog, usb_sel: sel, usb_msg: nil})
 
       true ->
@@ -247,7 +247,10 @@ defmodule HelloKioskBrain.Kiosk do
         dst
 
       File.exists?(src) ->
-        with {:ok, _} <- File.copy(src, dst), :ok <- File.chmod(dst, 0o755), do: dst, else: (_ -> nil)
+        with {:ok, _} <- File.copy(src, dst),
+             :ok <- File.chmod(dst, 0o755),
+             do: dst,
+             else: (_ -> nil)
 
       true ->
         nil
@@ -451,7 +454,9 @@ defmodule HelloKioskBrain.Kiosk do
     else
       wd = Enum.at(~w(月 火 水 木 金 土 日), :calendar.day_of_the_week(date) - 1)
       ndt = NaiveDateTime.from_erl!(jst)
-      {Calendar.strftime(ndt, "%Y-%m-%d") <> "(#{wd}) " <> Calendar.strftime(ndt, "%H:%M:%S"), @fg}
+
+      {Calendar.strftime(ndt, "%Y-%m-%d") <> "(#{wd}) " <> Calendar.strftime(ndt, "%H:%M:%S"),
+       @fg}
     end
   end
 
@@ -501,7 +506,7 @@ defmodule HelloKioskBrain.Kiosk do
           Draw.text(210, y, :ml, :jp20, col, value)
         ]
       end),
-      # 「USB」行はボタン(タップで役割切替ダイアログ)。値の周りに枠と「切替 >」
+      # 「USB」行はボタン(タップでモード切替ダイアログ)。値の周りに枠と「切替 >」
       usb_row_button(),
       status
       |> Enum.with_index()
@@ -558,25 +563,22 @@ defmodule HelloKioskBrain.Kiosk do
     end
   end
 
-  # --- USB 役割(HOST / NCM)の表示と切替 -------------------------------------------
+  # --- USB モード(HOST / NCM)の表示と切替 -------------------------------------------
 
-  # USB0 の動作モードを sysfs から判定して 1 行にする。
-  #   HOST: /sys/bus/usb/devices/usb1(ルートハブ)がある → ハブ配下の機器数(ハブ自身を除く)を表示
-  #   NCM : /sys/class/udc に UDC がある(peripheral DTB)→ usb0 の IP(ガジェット未リンクなら「リンク待ち」)
+  # USB0 の動作モードを Device Tree から判定して 1 行にする。
+  #   HOST: USB host。ハブ配下の機器数(ハブ自身を除く)を表示
+  #   NCM : dr_mode=peripheral。usb0 の IP(ガジェット未リンクなら「リンク待ち」)を表示
   defp usb_role_row do
     case UsbMode.current() do
       :host ->
         n = usb_device_count()
         {"USB", "HOST / 機器 #{n}台", if(n > 0, do: @ok, else: @warn)}
 
-      :peripheral ->
+      :ncm ->
         case ip_map()["usb0"] do
           nil -> {"USB", "NCM / リンク待ち", @warn}
           ip -> {"USB", "NCM / usb0 #{ip}", @ok}
         end
-
-      :otg ->
-        {"USB", "OTG / HOST #{usb_device_count()}台 + NCM", @ok}
 
       _ ->
         {"USB", "不明", @dim}
@@ -616,8 +618,7 @@ defmodule HelloKioskBrain.Kiosk do
   end
 
   defp usb_mode_name(:host), do: "HOST"
-  defp usb_mode_name(:peripheral), do: "NCM"
-  defp usb_mode_name(:otg), do: "OTG"
+  defp usb_mode_name(:ncm), do: "NCM"
   defp usb_mode_name(_), do: "不明"
 
   defp usb_dialog(st) do
@@ -625,13 +626,43 @@ defmodule HelloKioskBrain.Kiosk do
     supported = UsbMode.supported?()
 
     [
-      Draw.text(div(@w, 2), 60, :mc, :jp32, @fg, "USB の役割を切り替え"),
-      Draw.text(div(@w, 2), 104, :mc, :jp20, @dim,
-        "現在: #{usb_mode_name(cur)}  (#{if supported, do: "選んで「リブート実行」", else: "この機種は非対応(#{UsbMode.model_code() || "?"})"})"),
-      usb_option(@usb_opt_host, "HOST", "ハブ経由: LAN / WiFi / BLE / 音声", st.usb_sel == :host, cur == :host),
-      usb_option(@usb_opt_ncm, "NCM", "母艦と直結: usb0 10.42.0.2", st.usb_sel == :peripheral, cur == :peripheral),
-      Draw.text(div(@w, 2), 290, :mc, :jp16, @dim, "boot 領域の imx28-pwsh6.dtb を差し替えて再起動します(両方同時には使えません)"),
-      usb_button(@usb_go, "リブート実行", if(supported, do: @warn, else: @tab_off), if(supported, do: @bg, else: @dim)),
+      Draw.text(div(@w, 2), 60, :mc, :jp32, @fg, "USB モードを切り替え"),
+      Draw.text(
+        div(@w, 2),
+        104,
+        :mc,
+        :jp20,
+        @dim,
+        "現在: #{usb_mode_name(cur)}  (#{if supported, do: "選んで「リブート実行」", else: "切替 helper なし"})"
+      ),
+      usb_option(
+        @usb_opt_host,
+        "HOST",
+        "ハブ経由: LAN / WiFi / BLE / 音声",
+        st.usb_sel == :host,
+        cur == :host
+      ),
+      usb_option(
+        @usb_opt_ncm,
+        "NCM",
+        "母艦と直結: usb0 / VintageNetDirect",
+        st.usb_sel == :ncm,
+        cur == :ncm
+      ),
+      Draw.text(
+        div(@w, 2),
+        290,
+        :mc,
+        :jp16,
+        @dim,
+        "HOST / NCM を選び、再起動して切り替えます(両方同時には使えません)"
+      ),
+      usb_button(
+        @usb_go,
+        "リブート実行",
+        if(supported, do: @warn, else: @tab_off),
+        if(supported, do: @bg, else: @dim)
+      ),
       usb_button(@usb_cancel, "キャンセル", @tab_off, @fg)
     ]
   end
@@ -640,13 +671,23 @@ defmodule HelloKioskBrain.Kiosk do
     [
       Draw.rrect(x, y, w, h, 12, if(selected, do: @panel, else: @bg)),
       Draw.rframe(x, y, w, h, 12, if(selected, do: @accent, else: @tab_off)),
-      Draw.text(x + div(w, 2), y + 34, :mc, :jp32, if(selected, do: @accent, else: @fg), title <> if(current, do: " (現在)", else: "")),
+      Draw.text(
+        x + div(w, 2),
+        y + 34,
+        :mc,
+        :jp32,
+        if(selected, do: @accent, else: @fg),
+        title <> if(current, do: " (現在)", else: "")
+      ),
       Draw.text(x + div(w, 2), y + 80, :mc, :jp16, @dim, sub)
     ]
   end
 
   defp usb_button({x, y, w, h}, label, bg, fg) do
-    [Draw.rrect(x, y, w, h, 10, bg), Draw.text(x + div(w, 2), y + div(h, 2), :mc, :jp24, fg, label)]
+    [
+      Draw.rrect(x, y, w, h, 10, bg),
+      Draw.text(x + div(w, 2), y + div(h, 2), :mc, :jp24, fg, label)
+    ]
   end
 
   defp usb_result(%{usb_msg: {:ok, sel}}) do
@@ -851,7 +892,10 @@ defmodule HelloKioskBrain.Kiosk do
       {:ok, ifs} ->
         for {name, props} <- ifs,
             name != ~c"lo",
-            {a, b, c, d} <- Keyword.get_values(props, :addr) |> Enum.filter(&match?({_, _, _, _}, &1)) |> Enum.take(1),
+            {a, b, c, d} <-
+              Keyword.get_values(props, :addr)
+              |> Enum.filter(&match?({_, _, _, _}, &1))
+              |> Enum.take(1),
             into: %{},
             do: {List.to_string(name), "#{a}.#{b}.#{c}.#{d}"}
 

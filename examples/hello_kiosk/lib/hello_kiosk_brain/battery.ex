@@ -13,7 +13,6 @@ defmodule HelloKioskBrain.Battery do
   use GenServer
 
   @sts 0x800440C0
-  @battmon 0x80044054
   @poll_ms 5_000
 
   # 電池ログ: @poll_ms 毎の読取りのうち @log_every 回に 1 回、/root/battery.log へ
@@ -116,7 +115,11 @@ defmodule HelloKioskBrain.Battery do
 
         if length(lines) > @log_max_lines do
           kept = lines |> Enum.drop(1) |> Enum.take(-@log_max_lines)
-          File.write(@log_path, "os_time_s,uptime_s,mv,percent,on_5v\n" <> Enum.join(kept, "\n") <> "\n")
+
+          File.write(
+            @log_path,
+            "os_time_s,uptime_s,mv,percent,on_5v\n" <> Enum.join(kept, "\n") <> "\n"
+          )
         end
 
       _ ->

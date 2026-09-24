@@ -7,7 +7,7 @@ code is intended to be available under the Apache License, Version 2.0.
 Copyright holders include kurokouji, Masatoshi Nishiguchi, and
 nerves_system_brain contributors.
 
-Device Tree source files and generated DTB files in sd/ are derived from
+Device Tree source files and generated DTB files in boot/ are derived from
 brain-hackers/linux-brain and Linux kernel Device Tree sources. They are
 tracked under GNU General Public License version 2 or later. Upstream
 copyright notices include Freescale Semiconductor, Inc.

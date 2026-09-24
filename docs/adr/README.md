@@ -14,6 +14,11 @@
 | [0003](0003-rootfsにext4を採用する.md) | rootfs をどう構成するか | ext4 を使い、現段階では書き込み可能とする |
 | [0004](0004-usb-ncmを開発用通信経路とする.md) | 開発時にどう通信するか | USB-NCM を標準の開発経路とする |
 | [0005](0005-nerves-system-brをstandaloneで利用する.md) | Nerves System をどう組み立てるか | `nerves_system_br` を standalone で利用する |
+| [0006](0006-nerves標準開発フローへ段階移行する.md) | application 開発体験を標準 Nerves に寄せるか | boot/storage は維持し、System dependency 化から段階移行する |
+| [0007](0007-blank-sd-provisioningとa-b-updateを分離する.md) | blank SD provisioning と安全な更新をどう進めるか | fixed boot bundle で初回作成を完結し、A/B update は別設計にする |
+| [0008](0008-networkingをvintagenetへ移行する.md) | network interface を誰が管理するか | hardware setup は System、IP/DHCP/WiFi は VintageNet / NervesPack が管理する |
+| [0009](0009-host側のusbモード切り替えにfwup-taskを使う.md) | Linux PC から USB モードをどう選ぶか | `fwup` task を `mix burn --task` から適用する |
+| [0010](0010-legacy-deployment-pathを廃止する.md) | application の provisioning path をどうするか | `mix firmware` / `mix burn` に統一し、legacy SD/release path を廃止する |
 
 これらは現在の採用判断であり、表にある標準化候補を自動的な TODO にはしない。
 各 ADR の「再評価条件」に該当したときに見直す。

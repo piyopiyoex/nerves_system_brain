@@ -11,13 +11,14 @@ DEVMEM_SRC = src/devmem.c
 DEVMEM_BIN = $(PRIV_DIR)/bin/devmem
 
 LGFX_REPO = https://github.com/lovyan03/LovyanGFX.git
+LGFX_REF  = 1.2.29
 LGFX_DIR  = c_src/LovyanGFX
 LGFX_SRC  = $(LGFX_DIR)/src
 
 ERTS_INCLUDE_DIR ?= $(shell erl -noshell -eval 'io:format("~ts/erts-~ts/include/", [code:root_dir(), erlang:system_info(version)]), halt().')
 
 # GNU make defines CC=cc / CXX=g++ by default, so select the target compilers
-# explicitly when build_release.sh supplies CROSSCOMPILE. Command-line CC/CXX
+# explicitly when the legacy release path supplies CROSSCOMPILE. Command-line CC/CXX
 # values still take precedence when an explicit override is needed.
 ifneq ($(strip $(CROSSCOMPILE)),)
 CC  := $(CROSSCOMPILE)-gcc
@@ -38,7 +39,7 @@ LGFX_SOURCES = \
 
 NIF_SOURCES = c_src/kiosk_nif.cpp
 
-CPPFLAGS = -DLGFX_USE_V1 -DLGFX_LINUX_FB \
+CPPFLAGS += -DLGFX_USE_V1 -DLGFX_LINUX_FB \
 	-I$(LGFX_SRC) -I$(ERTS_INCLUDE_DIR)
 # -ffunction-sections/-fdata-sections + --gc-sections で未使用シンボルを除去する。
 # LovyanGFX の Fonts wildcard は efont(ja/cn/kr/tw ~93MB) を含むが NIF は IPA
@@ -55,8 +56,8 @@ LDLIBS   += -lpthread
 all: $(NIF_SO) $(DEVMEM_BIN)
 
 $(LGFX_DIR):
-	@echo "Fetching LovyanGFX..."
-	git clone --depth 1 $(LGFX_REPO) $(LGFX_DIR)
+	@echo "Fetching LovyanGFX $(LGFX_REF)..."
+	git clone --branch $(LGFX_REF) --depth 1 $(LGFX_REPO) $(LGFX_DIR)
 
 $(NIF_SO): $(LGFX_DIR) $(NIF_SOURCES) c_src/kiosk_draw.hpp c_src/icons.cpp
 	@mkdir -p $(PRIV_DIR)
