@@ -35,7 +35,7 @@ defmodule HelloKioskBrain.MixProject do
       {:nerves, "~> 1.13", runtime: false},
       {:elixir_make, "~> 0.9", runtime: false},
       {:lovyangfx_elixir,
-       github: "piyopiyoex/lovyangfx_elixir", ref: "5af95d748d80a8f1ace84b14a97ca7c484d93bbc"},
+       github: "piyopiyoex/lovyangfx_elixir", ref: "cc2ec000b16641284b844345327076f556da6593"},
       {:shoehorn, "~> 0.9.0"},
       {:ring_logger, "~> 0.11"},
       {:toolshed, "~> 0.5"},

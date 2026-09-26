@@ -8,7 +8,7 @@ MovingIcons native implementation を `lovyangfx_elixir` に集約し、SHARP Br
 
 ## 構成
 
-- `lovyangfx_elixir` commit: `5af95d748d80a8f1ace84b14a97ca7c484d93bbc`
+- `lovyangfx_elixir` commit: `cc2ec000b16641284b844345327076f556da6593`
 - LovyanGFX: `1.2.29`
 - framebuffer: 854x480、RGB565、stride 1708 bytes
 - mode: `:buffered_rgb565`、`swap_bytes: true`
