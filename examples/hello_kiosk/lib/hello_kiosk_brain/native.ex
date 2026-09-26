@@ -1,29 +1,26 @@
 defmodule HelloKioskBrain.Native do
   @moduledoc """
-  KIOSK 描画 NIF(`priv/kiosk_nif.so`)のローダ。
-
-  LovyanGFX を Linux フレームバッファ(/dev/fb0)へ描画する薄ラッパ。
-  Elixir 側が組み立てた描画コマンド列(`HelloKioskBrain.Draw` 参照)を
-  `render/1` でまとめて渡すと、オフスクリーンキャンバスへ描画後に
-  パネルへ一括転送される。
+  KIOSK の既存描画 API を `LovyanGFX` へ接続する薄い adapter。
   """
 
-  @on_load :load_nif
-
-  def load_nif do
-    path = :filename.join(:code.priv_dir(:hello_kiosk_brain), ~c"kiosk_nif")
-    :erlang.load_nif(path, 0)
-  end
+  @display_options [
+    width: 854,
+    height: 480,
+    framebuffer: "/dev/fb0",
+    framebuffer_mode: :buffered_rgb565,
+    swap_bytes: true
+  ]
 
   @doc "パネルとオフスクリーンキャンバスを初期化する。:ok | :error"
-  def init_display, do: :erlang.nif_error(:nif_not_loaded)
+  def init_display, do: LovyanGFX.start(@display_options)
 
-  @doc "描画コマンド列(iodata)を 1 フレームとして描画する。:ok | :error"
-  def render(_iodata), do: :erlang.nif_error(:nif_not_loaded)
+  @doc "nested list を含む描画コマンド列を 1 フレームとして描画する。"
+  def render(commands) when is_list(commands),
+    do: commands |> List.flatten() |> LovyanGFX.render()
 
   @doc "LovyanGFX MovingIcons デモを背景スレッドで開始。:ok | :already_started | :error"
-  def start_moving_icons, do: :erlang.nif_error(:nif_not_loaded)
+  def start_moving_icons, do: LovyanGFX.Examples.MovingIcons.start(@display_options)
 
   @doc "MovingIcons デモを停止。:ok"
-  def stop_moving_icons, do: :erlang.nif_error(:nif_not_loaded)
+  def stop_moving_icons, do: LovyanGFX.Examples.MovingIcons.stop()
 end
