@@ -11,7 +11,7 @@ defmodule HelloKioskBrain.MixProject do
       version: @version,
       elixir: "~> 1.18",
       archives: [nerves_bootstrap: "~> 1.15"],
-      compilers: compilers(Mix.target()),
+      compilers: Mix.compilers() ++ [:elixir_make],
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
@@ -30,13 +30,12 @@ defmodule HelloKioskBrain.MixProject do
     [preferred_targets: [run: :host, test: :host]]
   end
 
-  defp compilers(:brain), do: Mix.compilers() ++ [:elixir_make]
-  defp compilers(_target), do: Mix.compilers()
-
   defp deps do
     [
       {:nerves, "~> 1.13", runtime: false},
       {:elixir_make, "~> 0.9", runtime: false},
+      {:lovyangfx_elixir,
+       github: "piyopiyoex/lovyangfx_elixir", ref: "cc2ec000b16641284b844345327076f556da6593"},
       {:shoehorn, "~> 0.9.0"},
       {:ring_logger, "~> 0.11"},
       {:toolshed, "~> 0.5"},

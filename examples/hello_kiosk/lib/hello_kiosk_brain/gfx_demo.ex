@@ -1,9 +1,9 @@
 defmodule HelloKioskBrain.GfxDemo do
   @moduledoc """
-  Minimal check that the LovyanGFX NIF (kiosk_nif.so) loads via @on_load at
-  boot and can draw. Uses HelloKioskBrain.Native (papapa-style NIF) +
-  HelloKioskBrain.Draw (command DSL). Draws one Japanese frame, then starts
-  the Moving Icons demo in the NIF's background thread.
+  Minimal check that the `lovyangfx_elixir` NIF loads at boot and can draw.
+  Uses `HelloKioskBrain.Native` as a thin adapter and
+  `HelloKioskBrain.Draw` as the command DSL. Draws one Japanese frame, then
+  starts the MovingIcons demo in the package's background thread.
   """
   use GenServer
   require Logger

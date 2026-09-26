@@ -16,7 +16,7 @@ Mix アプリ名と release 名は既存環境との互換性のため `hello_ki
 ## 画面（実機の /dev/fb0 をダンプした実スクリーンショット）
 
 下部タブ（タッチ）またはキー 1/2/3/4 で 4 画面を切り替える。
-描画は LovyanGFX NIF（`priv/kiosk_nif.so`、efont/IPA 日本語ゴシック）。
+描画は `lovyangfx_elixir` dependency の LovyanGFX NIF（efont/IPA 日本語ゴシック）。
 ヘッダ共通: 機種名（DTB の model から自動認識、例 `PW-SH6`）/ タイトル / 日時（JST、毎秒更新）/ 電池（LRADC 実測、充電中は+緑）/
 取得 IP（有線 eth0 または NCM の usb0、WiFi wlan0 を 2 段で併記。取得済=緑）。
 
@@ -64,7 +64,7 @@ mix firmware
 mix burn
 ```
 
-LovyanGFX は、この NIF の source layout と実機検証済み構成に合わせて `1.2.29` に固定している。
+LovyanGFX は `lovyangfx_elixir` 側で、実機検証済み構成に合わせて `1.2.29` に固定している。
 `1.2.30` では v1 実装の source layout が変更され、従来の `Panel_Device.cpp` を直接ビルドする構成とは
 互換性がないため、firmware build 時に upstream の最新 `master` は追従しない。
 
@@ -132,9 +132,9 @@ System / toolchain package の公開後は version dependency へ置き換え、
 
 | モジュール | 役割 |
 |---|---|
-| `HelloKioskBrain.Native` | LovyanGFX 描画 NIF ローダ（init_display / render / MovingIcons）。hello_kiosk_papapa と同一構成 |
-| `HelloKioskBrain.Draw` | 描画コマンド DSL（clear/rect/line/circle/text…、日本語 jp8〜jp40）。NIF 非依存の純粋関数 |
-| `HelloKioskBrain.Kiosk` | KIOSK デモ GUI（下部バー7ボタン=ホーム/タッチ/キー/デモ/予備1/予備2/電源を切る、物理キー15/104/109/110/111 と対応、電池/IP/時計、電源OFF確認）。LovyanGFX NIF 描画 |
+| `HelloKioskBrain.Native` | `LovyanGFX` / MovingIcons に委譲する薄い adapter（init_display / render / start / stop） |
+| `HelloKioskBrain.Draw` | 既存 KIOSK API を LovyanGFX command tuple に変換する純粋関数（clear/rect/line/circle/text…、日本語 jp8〜jp40） |
+| `HelloKioskBrain.Kiosk` | KIOSK デモ GUI（下部バー7ボタン=ホーム/タッチ/キー/デモ/予備1/予備2/電源を切る、物理キー15/104/109/110/111 と対応、電池/IP/時計、電源OFF確認）。`lovyangfx_elixir` 経由で描画 |
 | `HelloKioskBrain.Backlight` | LCD バックライト sysfs ラッパ（現状**未使用**。PW-SH6 はバックライトを独立制御できないと実機で判明。[調査結論](docs/adr/0003-バックライト制御線_調査結論.md)参照） |
 | `HelloKioskBrain.Fb` | 旧・シャドウフレーム描画（フォールバックとして残置） |
 | `HelloKioskBrain.Font` | 旧・5×7 ビットマップフォント（Fb 用、残置） |
@@ -143,7 +143,7 @@ System / toolchain package の公開後は version dependency へ置き換え、
 | `HelloKioskBrain.Display` | 旧・最小 KIOSK 画面（Kiosk に置換、参考として残置） |
 | `HelloKioskBrain.SshAuth` | NervesSSH 用の PW-SH6 固有 lightweight password callback（公開鍵認証 / IEx / exec / SFTP 自体は NervesSSH が担当） |
 
-補助バイナリ `devmem`（`/dev/mem` mmap R/W）は `src/devmem.c` から `Makefile` / `elixir_make` で NIF と一緒に ARMv5 向けに生成する。
+補助バイナリ `devmem`（`/dev/mem` mmap R/W）は `src/devmem.c` から KIOSK の `Makefile` / `elixir_make` で ARMv5 向けに生成する。LovyanGFX の取得・build・NIF は `lovyangfx_elixir` が担当する。
 
 ## ドキュメント
 

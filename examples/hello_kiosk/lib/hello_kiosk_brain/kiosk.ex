@@ -1,6 +1,6 @@
 defmodule HelloKioskBrain.Kiosk do
   @moduledoc """
-  PW-SH6 KIOSK デモ(LovyanGFX NIF 描画版)。
+  PW-SH6 KIOSK デモ(`lovyangfx_elixir` 描画版)。
 
   画面(下部バーのタップ、または物理キー: タッチ=15 / キー=104 / デモ=109 /
   予備1=110 / 予備2=111):
@@ -10,7 +10,7 @@ defmodule HelloKioskBrain.Kiosk do
     デモ   : LovyanGFX MovingIcons(NIF 背景スレッド)。タッチ/キーでホームへ
 
   各画面は `HelloKioskBrain.Draw` でコマンド列を組み立て、`Native.render/1` で
-  1 フレームとして描画する(NIF 内でオフスクリーン描画 → fb0 へ一括転送)。
+  1 フレームとして描画する(`lovyangfx_elixir` 内でオフスクリーン描画 → fb0 へ一括転送)。
   日本語は efont/IPA ゴシック(jp8〜jp40)。
   """
   use GenServer

@@ -4,6 +4,11 @@
 
 採用
 
+2026-09-26 更新: NIF を採用する判断は維持し、KIOSK 固有の `kiosk_nif.so` は廃止した。
+LovyanGFX の取得・build・NIF lifecycle と Brain 用 buffered RGB565 backend は
+`lovyangfx_elixir` dependency に集約する。`HelloKioskBrain.Native` は package public API への
+adapter、`HelloKioskBrain.Draw` は command tuple 変換だけを担当する。
+
 ## 背景
 
 PW-SH6 の KIOSK 描画では、日本語フォントを含む LovyanGFX を ARMv5 上で利用したい。
@@ -12,8 +17,8 @@ PW-SH6 の KIOSK 描画では、日本語フォントを含む LovyanGFX を ARM
 
 ## 決定
 
-LovyanGFX は `kiosk_nif.so` を介した NIF として統合する。UI 状態と描画コマンドの生成は
-Elixir 側に置き、NIF は描画処理を担当する。
+LovyanGFX は NIF として統合する。UI 状態と描画コマンドの生成は Elixir 側に置き、
+native integration は再利用可能な `lovyangfx_elixir` package が担当する。
 
 ## 理由
 
@@ -24,7 +29,7 @@ Elixir 側に置き、NIF は描画処理を担当する。
 ## 影響
 
 - NIF のクラッシュは BEAM 全体へ影響するため、ネイティブコードの不具合には注意が必要。
-- `kiosk_nif.so` はターゲット ARMv5 用にクロスコンパイルする必要がある。
+- `lovyangfx_nif.so` はターゲット ARMv5 用にクロスコンパイルする必要がある。
 - フォントを広く同梱するため NIF のサイズは大きい。必要になれば対象フォントを絞る余地がある。
 
 ## 再評価条件
@@ -37,3 +42,4 @@ Port 方式を再評価する。
 - [LovyanGFX 導入計画](../worklog/20260904_LovyanGFX導入計画書.md)
 - [NIF 移植・実機検証の詳細](../worklog/20260904_LovyanGFX_NIF移植_検証記録.md)
 - [KIOSK 日本語 UI 実装報告](../worklog/20260904_LovyanGFX_Phase2_KIOSK日本語UI報告書.md)
+- [lovyangfx_elixir 集約・実機検証](../worklog/20260926_lovyangfx_elixir集約_実機検証.md)
