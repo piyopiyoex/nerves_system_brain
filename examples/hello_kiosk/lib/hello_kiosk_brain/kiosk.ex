@@ -3,11 +3,12 @@ defmodule HelloKioskBrain.Kiosk do
   PW-SH6 KIOSK デモ(`lovyangfx_elixir` 描画版)。
 
   画面(下部バーのタップ、または物理キー: タッチ=15 / キー=104 / デモ=109 /
-  予備1=110 / 予備2=111):
+  カメラ=110 / 予備2=111):
     ホーム : タイトル、稼働秒数、IP、電池、サブシステム状態
     タッチ : タップで点を描画、最終座標表示
     キー   : 最終キーコード表示
     デモ   : LovyanGFX MovingIcons(NIF 背景スレッド)。タッチ/キーでホームへ
+    カメラ : Atom Cam 2 の HTTP JPEG snapshot。タッチ/キーでホームへ
 
   各画面は `HelloKioskBrain.Draw` でコマンド列を組み立て、`Native.render/1` で
   1 フレームとして描画する(`lovyangfx_elixir` 内でオフスクリーン描画 → fb0 へ一括転送)。
@@ -16,13 +17,13 @@ defmodule HelloKioskBrain.Kiosk do
   use GenServer
   require Logger
 
-  alias HelloKioskBrain.{Draw, Input, Native, Pswitch, UsbMode}
+  alias HelloKioskBrain.{CameraMonitor, Draw, Input, Native, Pswitch, UsbMode}
 
   @tick_ms 1_000
   @w 854
   @h 480
   @tab_h 40
-  # 下部バーの全セル。左から 4 タブ + 予備 2 + 電源を切る。
+  # 下部バーの全セル。左から 5 タブ + 予備 1 + 電源を切る。
   #   {label, kind, target, keycode}
   #   kind: :tab(画面切替・選択ハイライトあり) / :spare(未割当のプレースホルダ) /
   #         :power(電源OFF 確認へ)
@@ -33,7 +34,7 @@ defmodule HelloKioskBrain.Kiosk do
     {"タッチ", :tab, :touch, 15},
     {"キー", :tab, :keys, 104},
     {"デモ", :tab, :demo, 109},
-    {"予備1", :tab, :spare1, 110},
+    {"カメラ", :tab, :camera, 110},
     {"予備2", :tab, :spare2, 111},
     {"電源を切る", :power, :confirm_off, nil}
   ]
@@ -110,8 +111,8 @@ defmodule HelloKioskBrain.Kiosk do
     st = %{st | ticks: st.ticks + 1}
     st = maybe_power_button(st)
 
-    # ヘッダの時計を進めるためデモ以外は毎秒再描画
-    if st.screen != :demo, do: paint(st)
+    # デモ/カメラは別 renderer が framebuffer を専有するため KIOSK 側では再描画しない。
+    if st.screen not in [:demo, :camera], do: paint(st)
 
     Process.send_after(self(), :tick, @tick_ms)
     {:noreply, st}
@@ -124,8 +125,9 @@ defmodule HelloKioskBrain.Kiosk do
 
   # --- 入力ディスパッチ -------------------------------------------------------
 
-  # デモ中は NIF スレッドが画面を専有: 任意のタッチ/キーでホームへ戻る
+  # デモ/カメラ中は専用 renderer が画面を専有: 任意のタッチ/キーでホームへ戻る。
   defp on_touch(%{screen: :demo} = st, _x, _y), do: go(st, :home)
+  defp on_touch(%{screen: :camera} = st, _x, _y), do: go(st, :home)
 
   # 電源断中 / 5V案内画面: タップでホームへ戻れる(キャンセル/エスケープ)
   defp on_touch(%{screen: :powering_off} = st, _x, _y), do: go(st, :home)
@@ -176,6 +178,7 @@ defmodule HelloKioskBrain.Kiosk do
   end
 
   defp on_key(%{screen: :demo} = st, _code), do: go(st, :home)
+  defp on_key(%{screen: :camera} = st, _code), do: go(st, :home)
   defp on_key(%{screen: :powering_off} = st, _code), do: go(st, :home)
   defp on_key(%{screen: :needs_unplug} = st, _code), do: go(st, :home)
   # USB ダイアログ/結果画面ではキー=キャンセル(誤操作で再起動しない)
@@ -228,6 +231,11 @@ defmodule HelloKioskBrain.Kiosk do
 
   defp open_confirm_off(%{screen: :demo} = st) do
     Native.stop_moving_icons()
+    open_confirm_off(%{st | screen: :home})
+  end
+
+  defp open_confirm_off(%{screen: :camera} = st) do
+    CameraMonitor.disable()
     open_confirm_off(%{st | screen: :home})
   end
 
@@ -325,9 +333,21 @@ defmodule HelloKioskBrain.Kiosk do
     go(%{st | screen: :home}, scr)
   end
 
+  defp go(%{screen: :camera} = st, scr) when scr != :camera do
+    CameraMonitor.disable()
+    go(%{st | screen: :home}, scr)
+  end
+
   defp go(st, :demo) do
     Native.start_moving_icons()
     {:noreply, %{st | screen: :demo}}
+  end
+
+  defp go(st, :camera) do
+    st = %{st | screen: :camera}
+    paint(st)
+    CameraMonitor.enable()
+    {:noreply, st}
   end
 
   defp go(st, scr) do
@@ -361,12 +381,28 @@ defmodule HelloKioskBrain.Kiosk do
             :touch -> touch(st)
             :keys -> keys(st)
             :demo -> []
-            :spare1 -> spare_screen("予備1")
+            :camera -> camera_screen()
             :spare2 -> spare_screen("予備2")
           end
 
         Native.render([Draw.clear(@bg), body, tabs(st)])
     end
+  end
+
+  defp camera_screen do
+    [
+      header("ネットワークカメラ"),
+      Draw.text(div(@w, 2), 190, :mc, :jp32, @accent, "カメラに接続中…"),
+      Draw.text(
+        div(@w, 2),
+        245,
+        :mc,
+        :jp20,
+        @fg,
+        "Atom Cam 2 の JPEG snapshot を取得して表示します"
+      ),
+      Draw.text(div(@w, 2), 290, :mc, :jp16, @dim, "タッチまたはキー入力でホームへ戻ります")
+    ]
   end
 
   defp confirm_off do
@@ -815,7 +851,7 @@ defmodule HelloKioskBrain.Kiosk do
       header("キーボードデモ"),
       Draw.text(40, 80, :ml, :jp20, @dim, "いずれかのキーを押してください"),
       Draw.text(40, 150, :ml, :jp32, @fg, readout),
-      Draw.text(40, 220, :ml, :jp20, @dim, "キー タッチ15/キー104/デモ109/予備110・111")
+      Draw.text(40, 220, :ml, :jp20, @dim, "キー タッチ15/キー104/デモ109/カメラ110/予備111")
     ]
   end
 
