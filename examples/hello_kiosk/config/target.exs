@@ -57,10 +57,11 @@ config :hello_kiosk_brain,
   boot_trace: true,
   kiosk_start_delay_ms: 3_000,
   camera_monitor: [
-    snapshot_url: "http://192.168.10.110/snapshot.jpg",
+    snapshot_url: nil,
     interval_ms: 500,
     retry_ms: 1_000,
     request_timeout_ms: 4_000,
+    stop_timeout_ms: 1_000,
     max_jpeg_bytes: 2 * 1024 * 1024,
     scale: 4
   ]

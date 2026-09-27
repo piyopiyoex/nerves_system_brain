@@ -16,10 +16,10 @@ defmodule HelloKioskBrain.CameraMonitor do
   use GenServer
   require Logger
 
-  @default_url "http://192.168.10.110/snapshot.jpg"
   @default_interval_ms 500
   @default_retry_ms 1_000
   @default_request_timeout_ms 4_000
+  @default_stop_timeout_ms 1_000
   @default_max_jpeg_bytes 2 * 1024 * 1024
   @default_scale 4
 
@@ -28,7 +28,7 @@ defmodule HelloKioskBrain.CameraMonitor do
   @doc "Enable snapshot fetching and camera rendering."
   def enable, do: GenServer.call(__MODULE__, :enable)
 
-  @doc "Disable camera rendering and release the renderer Port."
+  @doc "Disable camera rendering after the renderer has released the framebuffer."
   def disable, do: GenServer.call(__MODULE__, :disable)
 
   @doc "Return camera state and the latest timing counters."
@@ -37,6 +37,15 @@ defmodule HelloKioskBrain.CameraMonitor do
   @doc "Update the snapshot URL used by subsequent fetches."
   def set_snapshot_url(url) when is_binary(url),
     do: GenServer.call(__MODULE__, {:set_snapshot_url, String.trim(url)})
+
+  @doc false
+  def validate_snapshot_url(url) when is_binary(url) do
+    case URI.parse(url) do
+      %URI{scheme: "http", host: host} when is_binary(host) and host != "" -> :ok
+      %URI{scheme: "https"} -> {:error, :https_not_supported}
+      _ -> {:error, :invalid_camera_url}
+    end
+  end
 
   @doc false
   def decode_ack(
@@ -72,6 +81,14 @@ defmodule HelloKioskBrain.CameraMonitor do
   @impl true
   def handle_call(:enable, _from, %{enabled: true} = state), do: {:reply, :ok, state}
 
+  def handle_call(:enable, _from, %{state: :stopping} = state) do
+    {:reply, {:error, :camera_stopping}, state}
+  end
+
+  def handle_call(:enable, _from, %{snapshot_url: nil} = state) do
+    {:reply, {:error, :camera_not_configured}, state}
+  end
+
   def handle_call(:enable, _from, state) do
     state =
       state
@@ -85,19 +102,29 @@ defmodule HelloKioskBrain.CameraMonitor do
     {:reply, :ok, state}
   end
 
-  def handle_call(:disable, _from, state) do
+  def handle_call(:disable, from, %{state: :stopping} = state) do
+    {:noreply, %{state | disable_waiters: [from | state.disable_waiters]}}
+  end
+
+  def handle_call(:disable, from, %{port: port} = state) when is_port(port) do
     state =
       state
       |> cancel_timer()
-      |> close_port()
       |> Map.put(:enabled, false)
-      |> Map.put(:state, :idle)
+      |> Map.put(:state, :stopping)
       |> Map.put(:fetching, false)
       |> Map.put(:cycle_started_ms, nil)
       |> Map.update!(:generation, &(&1 + 1))
 
-    {:reply, :ok, state}
+    if send_stop(port) do
+      timer = Process.send_after(self(), {:stop_timeout, port}, state.stop_timeout_ms)
+      {:noreply, %{state | stop_timer: timer, disable_waiters: [from]}}
+    else
+      {:reply, {:error, :renderer_stop_failed}, state |> close_port() |> disable_without_port()}
+    end
   end
+
+  def handle_call(:disable, _from, state), do: {:reply, :ok, disable_without_port(state)}
 
   def handle_call(:status, _from, state) do
     {:reply,
@@ -117,11 +144,12 @@ defmodule HelloKioskBrain.CameraMonitor do
      ]), state}
   end
 
-  def handle_call({:set_snapshot_url, ""}, _from, state),
-    do: {:reply, {:error, :empty_url}, state}
-
-  def handle_call({:set_snapshot_url, url}, _from, state),
-    do: {:reply, :ok, %{state | snapshot_url: url}}
+  def handle_call({:set_snapshot_url, url}, _from, state) do
+    case validate_snapshot_url(url) do
+      :ok -> {:reply, :ok, %{state | snapshot_url: url}}
+      {:error, reason} -> {:reply, {:error, reason}, state}
+    end
+  end
 
   @impl true
   def handle_info(
@@ -228,25 +256,48 @@ defmodule HelloKioskBrain.CameraMonitor do
     end
   end
 
+  def handle_info({port, {:data, _ack}}, %{state: :stopping, port: port} = state) do
+    {:noreply, state}
+  end
+
   def handle_info({port, {:exit_status, status}}, %{port: port} = state) when is_port(port) do
-    state = %{state | port: nil, fetching: false, cycle_started_ms: nil}
+    state =
+      state
+      |> cancel_stop_timer()
+      |> Map.put(:port, nil)
+      |> Map.put(:fetching, false)
+      |> Map.put(:cycle_started_ms, nil)
 
-    if state.enabled do
-      reason = {:renderer_exit, status}
-      Logger.warning("CameraMonitor: camera_viewer exited: #{status}")
+    cond do
+      state.state == :stopping ->
+        reply = if status == 0, do: :ok, else: {:error, {:renderer_exit, status}}
+        {:noreply, finish_disable(state, reply)}
 
-      state = %{
-        state
-        | state: :retrying,
-          failures: state.failures + 1,
-          last_error: reason
-      }
+      state.enabled ->
+        reason = {:renderer_exit, status}
+        Logger.warning("CameraMonitor: camera_viewer exited: #{status}")
 
-      {:noreply, schedule(state, :restart_viewer, state.retry_ms)}
-    else
-      {:noreply, %{state | state: :idle}}
+        state = %{
+          state
+          | state: :retrying,
+            failures: state.failures + 1,
+            last_error: reason
+        }
+
+        {:noreply, schedule(state, :restart_viewer, state.retry_ms)}
+
+      true ->
+        {:noreply, %{state | state: :idle}}
     end
   end
+
+  def handle_info({:stop_timeout, port}, %{state: :stopping, port: port} = state) do
+    Logger.warning("CameraMonitor: camera_viewer stop timed out")
+    state = state |> Map.put(:stop_timer, nil) |> close_port()
+    {:noreply, finish_disable(state, {:error, :renderer_stop_timeout})}
+  end
+
+  def handle_info({:stop_timeout, _port}, state), do: {:noreply, state}
 
   def handle_info({:restart_viewer, generation}, %{enabled: true, generation: generation} = state) do
     {:noreply, state |> Map.put(:timer, nil) |> start_or_retry_viewer()}
@@ -271,10 +322,11 @@ defmodule HelloKioskBrain.CameraMonitor do
     %{
       enabled: false,
       state: :idle,
-      snapshot_url: Keyword.get(config, :snapshot_url, @default_url),
+      snapshot_url: Keyword.get(config, :snapshot_url),
       interval_ms: Keyword.get(config, :interval_ms, @default_interval_ms),
       retry_ms: Keyword.get(config, :retry_ms, @default_retry_ms),
       request_timeout_ms: Keyword.get(config, :request_timeout_ms, @default_request_timeout_ms),
+      stop_timeout_ms: Keyword.get(config, :stop_timeout_ms, @default_stop_timeout_ms),
       max_jpeg_bytes: Keyword.get(config, :max_jpeg_bytes, @default_max_jpeg_bytes),
       scale: Keyword.get(config, :scale, @default_scale),
       viewer_path: Keyword.get(config, :viewer_path),
@@ -283,6 +335,8 @@ defmodule HelloKioskBrain.CameraMonitor do
       generation: 0,
       port: nil,
       timer: nil,
+      stop_timer: nil,
+      disable_waiters: [],
       fetching: false,
       cycle_started_ms: nil,
       frames_received: 0,
@@ -423,6 +477,16 @@ defmodule HelloKioskBrain.CameraMonitor do
     end
   end
 
+  defp send_stop(port) do
+    try do
+      Port.command(port, <<>>)
+    rescue
+      _ -> false
+    catch
+      _, _ -> false
+    end
+  end
+
   defp renderer_failed(state, reason) do
     Logger.warning("CameraMonitor: renderer failed: #{inspect(reason)}")
 
@@ -461,6 +525,29 @@ defmodule HelloKioskBrain.CameraMonitor do
   defp cancel_timer(state) do
     Process.cancel_timer(state.timer)
     %{state | timer: nil}
+  end
+
+  defp cancel_stop_timer(%{stop_timer: nil} = state), do: state
+
+  defp cancel_stop_timer(state) do
+    Process.cancel_timer(state.stop_timer)
+    %{state | stop_timer: nil}
+  end
+
+  defp disable_without_port(state) do
+    state
+    |> cancel_timer()
+    |> cancel_stop_timer()
+    |> Map.put(:enabled, false)
+    |> Map.put(:state, :idle)
+    |> Map.put(:fetching, false)
+    |> Map.put(:cycle_started_ms, nil)
+    |> Map.update!(:generation, &(&1 + 1))
+  end
+
+  defp finish_disable(state, reply) do
+    Enum.each(state.disable_waiters, &GenServer.reply(&1, reply))
+    %{state | state: :idle, disable_waiters: [], stop_timer: nil}
   end
 
   defp close_port(%{port: port} = state) when is_port(port) do

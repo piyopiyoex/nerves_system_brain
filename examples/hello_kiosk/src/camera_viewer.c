@@ -318,7 +318,7 @@ static int decode_into_frame(const uint8_t *jpeg, size_t jpeg_len, int scale,
   unsigned int x_offset;
   unsigned int y_offset;
   uint64_t started;
-  int created = 0;
+  volatile int created = 0;
 
   memset(&cinfo, 0, sizeof(cinfo));
   memset(&jerr, 0, sizeof(jerr));
@@ -552,21 +552,23 @@ static int run_port_mode(const struct options *opts) {
     jpeg_len = ((uint32_t)header[0] << 24) | ((uint32_t)header[1] << 16) |
                ((uint32_t)header[2] << 8) | (uint32_t)header[3];
 
-    if (jpeg_len == 0 || jpeg_len > opts->max_jpeg_bytes) {
+    /* A zero-length Port packet requests a graceful shutdown. Since packets are
+     * processed serially, all preceding framebuffer writes are complete here. */
+    if (jpeg_len == 0) {
+      result = EXIT_SUCCESS;
+      break;
+    }
+
+    if (jpeg_len > opts->max_jpeg_bytes) {
       char message[128];
       snprintf(message, sizeof(message), "invalid JPEG packet size: %u", jpeg_len);
       if (write_error_ack(ERR_PACKET, message) != 0) {
         break;
       }
-      if (jpeg_len > 0) {
-        /* Oversized packets cannot be safely buffered; exit so the BEAM can
-         * restart us with a clean packet boundary. */
-        if (jpeg_len > opts->max_jpeg_bytes) {
-          result = EXIT_FAILURE;
-          break;
-        }
-      }
-      continue;
+      /* The unread payload leaves the stream out of sync. Exit so the BEAM can
+       * restart us with a clean packet boundary. */
+      result = EXIT_FAILURE;
+      break;
     }
 
     if (jpeg_len > jpeg_capacity) {
@@ -575,7 +577,10 @@ static int run_port_mode(const struct options *opts) {
         if (write_error_ack(ERR_MEMORY, "unable to allocate JPEG input buffer") != 0) {
           break;
         }
-        continue;
+        /* The payload has not been consumed, so continuing would interpret it
+         * as the next packet header. */
+        result = EXIT_FAILURE;
+        break;
       }
       jpeg = new_jpeg;
       jpeg_capacity = jpeg_len;

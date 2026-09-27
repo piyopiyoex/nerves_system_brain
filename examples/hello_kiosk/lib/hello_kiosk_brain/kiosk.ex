@@ -390,19 +390,28 @@ defmodule HelloKioskBrain.Kiosk do
   end
 
   defp camera_screen do
-    [
-      header("ネットワークカメラ"),
-      Draw.text(div(@w, 2), 190, :mc, :jp32, @accent, "カメラに接続中…"),
-      Draw.text(
-        div(@w, 2),
-        245,
-        :mc,
-        :jp20,
-        @fg,
-        "Atom Cam 2 の JPEG snapshot を取得して表示します"
-      ),
-      Draw.text(div(@w, 2), 290, :mc, :jp16, @dim, "タッチまたはキー入力でホームへ戻ります")
-    ]
+    if CameraMonitor.status().snapshot_url do
+      [
+        header("ネットワークカメラ"),
+        Draw.text(div(@w, 2), 190, :mc, :jp32, @accent, "カメラに接続中…"),
+        Draw.text(
+          div(@w, 2),
+          245,
+          :mc,
+          :jp20,
+          @fg,
+          "Atom Cam 2 の JPEG snapshot を取得して表示します"
+        ),
+        Draw.text(div(@w, 2), 290, :mc, :jp16, @dim, "タッチまたはキー入力でホームへ戻ります")
+      ]
+    else
+      [
+        header("ネットワークカメラ"),
+        Draw.text(div(@w, 2), 190, :mc, :jp28, @accent, "カメラが設定されていません"),
+        Draw.text(div(@w, 2), 245, :mc, :jp20, @fg, "IEx から snapshot URL を設定してください"),
+        Draw.text(div(@w, 2), 290, :mc, :jp16, @dim, "タッチまたはキー入力でホームへ戻ります")
+      ]
+    end
   end
 
   defp confirm_off do

@@ -23,4 +23,21 @@ defmodule HelloKioskBrain.CameraMonitorTest do
   test "rejects malformed camera_viewer ACK" do
     assert {:error, {:invalid_renderer_ack, 2}} = CameraMonitor.decode_ack(<<0, 1>>)
   end
+
+  test "accepts only configured HTTP snapshot URLs" do
+    assert :ok = CameraMonitor.validate_snapshot_url("http://camera.local/snapshot.jpg")
+
+    assert {:error, :https_not_supported} =
+             CameraMonitor.validate_snapshot_url("https://camera.local/snapshot.jpg")
+
+    assert {:error, :invalid_camera_url} = CameraMonitor.validate_snapshot_url("")
+    assert {:error, :invalid_camera_url} = CameraMonitor.validate_snapshot_url("camera.local")
+  end
+
+  test "does not start the renderer without a configured camera" do
+    {:ok, state} = CameraMonitor.init([])
+
+    assert {:reply, {:error, :camera_not_configured}, ^state} =
+             CameraMonitor.handle_call(:enable, self(), state)
+  end
 end
