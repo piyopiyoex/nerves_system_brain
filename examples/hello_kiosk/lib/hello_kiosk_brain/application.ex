@@ -7,10 +7,12 @@ defmodule HelloKioskBrain.Application do
     HelloKioskBrain.BootTrace.log("application start")
 
     # SSH is started by shoehorn through NervesSSH before this application.
-    # Battery/Input must start before Kiosk because Kiosk.init subscribes to Input.
+    # Battery/Input/CameraMonitor must start before Kiosk. Kiosk subscribes to Input
+    # and hands framebuffer ownership to CameraMonitor when entering camera mode.
     children = [
       HelloKioskBrain.Battery,
       HelloKioskBrain.Input,
+      HelloKioskBrain.CameraMonitor,
       HelloKioskBrain.KioskLauncher
     ]
 

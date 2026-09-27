@@ -57,6 +57,13 @@ BR2_PACKAGE_WPA_SUPPLICANT_WPA3=y
 BR2_PACKAGE_WPA_SUPPLICANT_CTRL_IFACE=y
 BR2_PACKAGE_IW=y
 
+# JPEG decode support for the SHARP Brain camera-monitor PoC.
+# The application links against the libjpeg-compatible API; jpeg-turbo is used
+# even on ARMv5 (without SIMD) so the same API can be kept if the transport is
+# later changed from snapshots to MJPEG.
+BR2_PACKAGE_JPEG=y
+BR2_PACKAGE_JPEG_TURBO=y
+
 # USB audio playback (tinyalsa: tinyplay/tinymix/tinycap; self-contained, no ALSA config files)
 BR2_PACKAGE_TINYALSA=y
 BR2_PACKAGE_TINYALSA_TOOLS=y

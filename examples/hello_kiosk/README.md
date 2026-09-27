@@ -134,16 +134,19 @@ System / toolchain package の公開後は version dependency へ置き換え、
 |---|---|
 | `HelloKioskBrain.Native` | `LovyanGFX` / MovingIcons に委譲する薄い adapter（init_display / render / start / stop） |
 | `HelloKioskBrain.Draw` | 既存 KIOSK API を LovyanGFX command tuple に変換する純粋関数（clear/rect/line/circle/text…、日本語 jp8〜jp40） |
-| `HelloKioskBrain.Kiosk` | KIOSK デモ GUI（下部バー7ボタン=ホーム/タッチ/キー/デモ/予備1/予備2/電源を切る、物理キー15/104/109/110/111 と対応、電池/IP/時計、電源OFF確認）。`lovyangfx_elixir` 経由で描画 |
+| `HelloKioskBrain.Kiosk` | KIOSK デモ GUI（下部バー7ボタン=ホーム/タッチ/キー/デモ/カメラ/予備2/電源を切る、物理キー15/104/109/110/111 と対応、電池/IP/時計、電源OFF確認）。通常画面は `lovyangfx_elixir` 経由で描画し、カメラ画面では framebuffer 所有権を `CameraMonitor` / `camera_viewer` に渡す |
 | `HelloKioskBrain.Backlight` | LCD バックライト sysfs ラッパ（現状**未使用**。PW-SH6 はバックライトを独立制御できないと実機で判明。[調査結論](docs/adr/0003-バックライト制御線_調査結論.md)参照） |
 | `HelloKioskBrain.Fb` | 旧・シャドウフレーム描画（フォールバックとして残置） |
 | `HelloKioskBrain.Font` | 旧・5×7 ビットマップフォント（Fb 用、残置） |
 | `HelloKioskBrain.Input` | evdev 読取り（タッチ event1 / キー event0）。タッチは実機校正 + Y 反転済み |
+| `HelloKioskBrain.CameraMonitor` | Atom Cam 2 の `/snapshot.jpg` を `:httpc` で取得し、persistent Erlang Port の `camera_viewer` へ 1 frame ずつ渡す。ACK 後に次 frame を取得して backpressure / retry / timing metrics を管理 |
 | `HelloKioskBrain.Battery` | i.MX28 HW_POWER から電池電圧/充電状態（devmem 経由） |
 | `HelloKioskBrain.Display` | 旧・最小 KIOSK 画面（Kiosk に置換、参考として残置） |
 | `HelloKioskBrain.SshAuth` | NervesSSH 用の PW-SH6 固有 lightweight password callback（公開鍵認証 / IEx / exec / SFTP 自体は NervesSSH が担当） |
 
-補助バイナリ `devmem`（`/dev/mem` mmap R/W）は `src/devmem.c` から KIOSK の `Makefile` / `elixir_make` で ARMv5 向けに生成する。LovyanGFX の取得・build・NIF は `lovyangfx_elixir` が担当する。
+補助バイナリ `devmem`（`/dev/mem` mmap R/W）は `src/devmem.c` から KIOSK の `Makefile` / `elixir_make` で ARMv5 向けに生成する。
+ネットワークカメラ用の `camera_viewer` は `src/camera_viewer.c` から target build 時だけ生成する。CLI の local JPEG benchmark mode に加え、`{:packet, 4}` の persistent Erlang Port mode を持ち、libjpeg-turbo で JPEG を縮小 decode して RGB565 framebuffer へ一括転送する。
+LovyanGFX の取得・build・NIF は `lovyangfx_elixir` が担当する。
 
 ## ドキュメント
 
