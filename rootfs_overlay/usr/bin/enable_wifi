@@ -18,8 +18,9 @@ echo "enable_wifi start uptime=$(cat /proc/uptime 2>/dev/null)" > "$log"
     echo "wlan0 present after ${n}s" >> "$log"
 
     # clear any stale udhcpc/wpa_supplicant on wlan0 from a previous run
-    for p in $(ps 2>/dev/null | grep -E 'udhcpc.*wlan0|wpa_supplicant.*wlan0' | grep -v grep | awk '{print $1}'); do
-        kill -9 "$p" 2>/dev/null
+    # (busybox に awk / sed が無いので、シェルの read だけで pid を取り出す)
+    ps 2>/dev/null | grep -E 'udhcpc.*wlan0|wpa_supplicant.*wlan0' | grep -v grep | while read -r pid _; do
+        kill -9 "$pid" 2>/dev/null
     done
 
     /sbin/ip link set wlan0 up
