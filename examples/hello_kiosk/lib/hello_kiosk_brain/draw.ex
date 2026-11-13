@@ -47,6 +47,10 @@ defmodule HelloKioskBrain.Draw do
   @doc "直線"
   def line(x1, y1, x2, y2, color), do: {:draw_line, x1, y1, x2, y2, rgb888(color)}
 
+  @doc "塗り三角形 (flight / animation demos)"
+  def tri(x1, y1, x2, y2, x3, y3, color),
+    do: {:fill_triangle, x1, y1, x2, y2, x3, y3, rgb888(color)}
+
   @doc "枠線円"
   def circle(x, y, r, color), do: {:draw_circle, x, y, r, rgb888(color)}
 

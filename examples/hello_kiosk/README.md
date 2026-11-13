@@ -1,156 +1,127 @@
 # hello_kiosk
 
-`nerves_system_brain` 用の、SHARP **Brain PW-SH6** で動作確認済み Elixir KIOSK 例。
-Mix アプリ名と release 名は既存環境との互換性のため `hello_kiosk_brain` のまま維持する。
+SHARP Brain **PW-SH6** で `nerves_system_brain` を試すための Elixir/Nerves アプリケーション例。
+Mix application / release 名は互換性のため `hello_kiosk_brain` を維持する。
 
-- SoC: NXP i.MX283（ARM926EJ-S / ARMv5TEJ soft-float / RAM 128MiB）
-- LCD: 5.5インチ 854×480（RGB565 LE, /dev/fb0 直描画）
-- ネットワーク: NervesPack / VintageNet（USB-NCM direct、USB Ethernet、WiFi）
-- ランタイム: OTP 29 + Elixir 1.20（ERTS 同梱 Nerves release）
-- システム: [nerves_system_brain](../..)（nerves_system_br ベース、
-  カーネル/U-Boot は brain-hackers 資産を流用）
+> **2026-11-13: feature port 作業中（WIP）**
+> `kurokouji/hello_kiosk_brain` の追加機能を取り込んだが、**この状態での host build・
+> firmware build・PW-SH6 実機検証は未実施**。以下の「従来確認済み」は移植前の構成を指す。
+> 現在の課題と受け入れ条件は [ロードマップ](docs/port-roadmap.md)、差分と制約は
+> [移植記録](docs/feature-port-20261113.md) を参照。
 
-実機で KIOSK デモ（**LovyanGFX 日本語 UI**・タッチ・キーボード・電池表示・時計・下部バー7ボタン・電源ボタン/電源OFF確認）+ SSH（IEx / リモート評価 / SFTP）稼働中。
-調査結果: 起動時タッチ遅延（SSH crypto 初期化が主因＝**解消済**）／バックライト（LCD 電源と一体で**独立制御不可**と実機確定）／音声（オンボード codec は回路情報の壁で凍結し **USB オーディオを本命**に）／電源OFF（5V 接続中は i.MX28 シリコン仕様で電源断維持不可＝再起動になる）。
+## 何ができるか
 
-## 画面（実機の /dev/fb0 をダンプした実スクリーンショット）
+| 領域 | 構成・機能 | 検証状況 |
+|---|---|---|
+| 描画と入力 | LovyanGFX、854×480 LCD、タッチ・ペン・キーボード | 旧 UI で実機確認済み。新 UI は未検証 |
+| Kiosk | ホーム、タッチ/キー、デモ選択、BLE センサ、音声デモ、設定、電源メニュー | 機能移植済み・未検証 |
+| デモ | MovingIcons、パパパの二重唱、フライト、花火、おしゃべり時計、世界時計、プラネタリウム、手書きメモ、ネットワークカメラ（計9カード） | デモの追加/統合は未検証。一部は別途音声素材が必要 |
+| OS 連携 | 電池・5V状態、RTC、起動記録、永続メモ、音量とWi-Fi設定 | 機能移植済み・未検証 |
+| 周辺機器 | USB オーディオ、録音、Bluetooth speaker、SwitchBot BLE scan | 対応機器とドライバでの確認待ち |
+| 開発基盤 | NervesSSH、VintageNet、USB HOST/NCM、A/B `mix upload` | 移植前に実機確認済み。移植後の回帰確認待ち |
 
-下部タブ（タッチ）またはキー 1/2/3/4 で 4 画面を切り替える。
-描画は `lovyangfx_elixir` dependency の LovyanGFX NIF（efont/IPA 日本語ゴシック）。
-ヘッダ共通: 機種名（DTB の model から自動認識、例 `PW-SH6`）/ タイトル / 日時（JST、毎秒更新）/ 電池（LRADC 実測、充電中は+緑）/
-取得 IP（有線 eth0 または NCM の usb0、WiFi wlan0 を 2 段で併記。取得済=緑）。
+**移植済み ≠ 動作保証。** PW-SH6 の実機で動くか、追加ドライバやデータが必要かは
+[ロードマップ](docs/port-roadmap.md) で個別に管理する。
+充電制御は `enable_charger: false` により既定で起動しない。
+バックライト調光と BU26154 内蔵音声は、現行 kernel/DTB では利用を前提にしない。
 
-| ホーム | タッチ |
-|---|---|
-| ![ホーム](docs/worklog/assets/kiosk_home_ja.png) | ![タッチ](docs/worklog/assets/kiosk_touch_ja.png) |
+## 構成
 
-| キー | デモ |
-|---|---|
-| ![キー](docs/worklog/assets/kiosk_keys_ja.png) | ![デモ](docs/worklog/assets/kiosk_demo_ja.png) |
+```text
+examples/hello_kiosk/
+  config/                Nerves application の host / target 設定
+  lib/hello_kiosk_brain/ UI、入力、デモ、機器連携
+  priv/demo/             世界時計・星空データ（配布条件は NOTICE を参照）
+  scripts/               母艦用補助ツールと素材生成スクリプト
+  test/                  host で実行する既存テスト
+  docs/                  移植記録、ロードマップ、ADR、worklog
+```
 
-- **ホーム**: 稼働秒数とサブシステム状態の一覧。「メモリ」は **`使用量 / 総量 MB`**（左＝使用量 `MemTotal-MemAvailable`、右＝総 RAM `MemTotal`。128MiB 機で約 112MB 総量。例 `38 / 112 MB` は使用 38MB・空き約 74MB）。
-  「モデル」は `/proc/device-tree/model`。状態欄のオーディオ / BLE は、本体アプリの `Audio` / `BtSpeaker` / `SwitchBotScanner`
-  モジュールがある場合だけ実状態を出し、本例（未同梱）では「未実装(本例)」と表示する
-- **ホーム「USB」行**: USB0 のモード（`HOST / 機器 N台` または `NCM / usb0 IP`）を表示するボタン。タップで切替ダイアログ
-  （HOST / NCM を選んで「リブート実行」）。`HelloKioskBrain.UsbMode` は System の `/usr/bin/brain-usb-mode` を呼ぶだけで、
-  application 自身は DTB を保持・mount・書き換えしない。NCM は母艦と USB 直結（usb0 / VintageNetDirect）、HOST は
-  セルフパワーハブ経由の LAN / WiFi / BLE / 音声。System は NCM 起動時に `enable_ethernet_gadget` で usb0 を作るだけで、
-  address / DHCP は VintageNet が管理する
+責務の境界は以下のとおり。
 
-  | 切替ダイアログ | NCM で起動したホーム |
-  |---|---|
-  | ![USB モード切替](docs/worklog/assets/kiosk_usb_dialog_ja.png) | ![NCM](docs/worklog/assets/kiosk_home_ncm_ja.png) |
-- **タッチ**: タップ位置に点を描画、座標表示（タッチは実機校正 + Y 反転）
-- **キー**: 押されたキーのコード表示
-- **デモ**: LovyanGFX MovingIcons（スプライト 50 個 11fps）。タッチ/キーでホームへ
+- **System:** U-Boot/kernel/DTB、USB HOST/NCM の切替、Nerves firmware/A-B、永続領域の mount。
+- **アプリ:** UI/描画、入力、音声/BLE/RTC、デモ、ユーザー設定。
+- **標準パッケージ:** ネットワーク設定は VintageNet、SSH は NervesSSH、描画は
+  [`lovyangfx_elixir`](https://github.com/piyopiyoex/lovyangfx_elixir)。
 
-## セットアップ（クローン後）
+`HelloKioskBrain.UsbMode` は System の `/usr/bin/brain-usb-mode` を呼び出す。
+`WifiConfig` は VintageNet に依頼し、`wpa_supplicant.conf` を直接書き換えない。
+`CameraMonitor` に画面を渡している間、通常の Kiosk は framebuffer を上書きしない。
 
-初回の System build、microSD 作成、USB-NCM 接続は
-[初回セットアップガイド](../../docs/getting-started.md) を参照。
+## 開発環境とビルド
 
-先にリポジトリルートで `mix brain.system.build` を実行し、`nerves_system_brain` の `o/` を作成する。
-手動で `nerves_system_br/create-build.sh` や `make -C o` を実行する必要はない。
-その後、このディレクトリで通常の Nerves firmware を構築する。
+System 初回構築と SD 起動は [初回セットアップガイド](../../docs/getting-started.md)、
+A/B 更新は [mix upload](../../docs/mix-upload.md) を参照。
+`.tool-versions` に指定した Erlang/Elixir を mise や asdf で準備する。
 
-Erlang / Elixir のバージョンは `.tool-versions` で固定している。mise / asdf など任意の
-バージョンマネージャーで事前にインストールし、以降は通常の Mix task として実行する。
+リポジトリルートで必要な System をビルドしてから、example ディレクトリで firmware を作る。
 
 ```sh
-export MIX_TARGET=brain
+# repository root
+mix brain.system.build
 
+cd examples/hello_kiosk
+export MIX_TARGET=brain
 mix deps.get
 mix firmware
+```
+
+テスト用の **空の microSD** に初期書き込みする場合のみ、内容が消えることを確認してから実行する。
+
+```sh
 mix burn
 ```
 
-LovyanGFX は `lovyangfx_elixir` 側で、実機検証済み構成に合わせて `1.2.29` に固定している。
-`1.2.30` では v1 実装の source layout が変更され、従来の `Panel_Device.cpp` を直接ビルドする構成とは
-互換性がないため、firmware build 時に upstream の最新 `master` は追従しない。
-
-`NervesSSH` は shoehorn から KIOSK application より先に起動する。firmware build 時に
-`~/.ssh/id_{rsa,ecdsa,ed25519}.pub` が見つかれば authorized key として取り込む。
-application の rootfs overlay は `/etc/iex.exs` を配置し、`NervesMOTD.print/0` と `use Toolshed` により
-通常の Nerves に近い IEx 環境を提供する。OTP 29 の persistent shell history は PW-SH6 で interactive IEx の
-開始を止める現象を実機確認したため、`rel/vm.args.eex` では `-kernel shell_history disabled` を明示する。
-
-PW-SH6 では OTP `:ssh` の `user_passwords` が PBKDF2 で非常に重かった実測があるため、
-移行中は `NervesSSH` の `daemon_option_overrides` で軽量な `pwdfun` を残している。
-公開鍵が無い場合も `user` / `brain` でログインできる。
-
-networking は `NervesPack` / `VintageNet` に任せる。USB peripheral では `VintageNetDirect` が `usb0` と
-peer DHCP を管理し、USB host では `VintageNetEthernet` が `eth0` を DHCP で設定する。WiFi は
-`VintageNetWiFi` を使用し、credential は rootfs の `wpa_supplicant.conf` ではなく VintageNet configuration として設定する。
-接続確認時は IEx から `VintageNet.info()`、WiFi の簡易設定は
-`VintageNetWiFi.quick_configure("SSID", "passphrase")` を利用できる。
-
-生成される `.fw` は、FAT p1 + ext4 p2(A) / p3(B) + p4(persistent data) の layout に合わせた firmware である。
-`complete` task は pinned buildbrain release の boot assets と、ERTS 同梱の Nerves release を
-blank SD にまとめて配置できる。p4 は初回起動時に `/root` へ mount され、`/data -> root` を通して
-NervesSSH host key と application data を A/B slot から独立して保持する。
-
-一度 current layout で `mix burn` した後は、application の更新に standard `mix upload` を使える。
+現行の A/B firmware layout を持つ microSD 上の application を更新する場合は、
+SSH 経由の `mix upload` を使う（ネットワークと SSH が利用可能なとき）。
 
 ```sh
-mix firmware
 mix upload nerves.local
 ```
 
-`mix upload` は inactive rootfs slot だけを更新し、shared boot partition の USB mode と p4 の data は維持する。
-新 slot は one-shot で起動し、StartupGuard が全 OTP application の起動後に validate する。startup が完了しなければ
-Erlang heart の再起動後に旧 slot へ戻る。
-fresh `mix burn` は p4 も再初期化する。kernel / DTB / boot loader を変更した場合は `mix burn` を使用する。詳細は
-[`docs/mix-upload.md`](../../docs/mix-upload.md) を参照する。
+`mix burn` は p4 の永続データも再初期化する。`mix upload` は inactive rootfs のみを書き換え、
+通常は `/data` を保持する。System boot asset を変更するときは別の検証用カードで
+`mix burn` する。USB HOST/NCM は排他的なので、SSH で更新できる経路を事前に確認する。
 
-この example app は同じ repository の `nerves_system_brain` を local path dependency として参照する。
-System / toolchain package の公開後は version dependency へ置き換え、通常の Nerves application と同じ
-`MIX_TARGET=brain` / `mix firmware` の使い方を維持する。
-
-> **SSH / crng**: 初期実装では独自 `SshDaemon` の crypto 初期化が UI を長時間
-> ブロックした。現在は `NervesSSH` へ移行し、既知の PBKDF2 問題だけを
-> `HelloKioskBrain.SshAuth` の軽量 `pwdfun` として残している。現在の firmware で NervesSSH / IEx / SFTP
-> 接続は実機確認済み。過去の調査経緯は
-> [SSH 起動不能の調査記録](docs/worklog/20260903_SSH起動不能_セカンドオピニオン質問書.md) を参照。
-
-## 実機デバッグ補助
-
-通常の変更は `mix firmware` / `mix burn` で反映する。実機の状態確認には次の helper を利用できる。
+host 側のテストは以下を入口とする（**この WIP patch に対して未実施**）。
 
 ```sh
-./scripts/screenshot.sh        # 実機 LCD をリモートで PNG 取得
-./scripts/settime.sh           # 母艦の時刻を Brain に設定(RTC 非搭載のため毎ブート後に)
+cd examples/hello_kiosk
+MIX_TARGET=host mix deps.get
+LOVYANGFX_ELIXIR_SKIP_NATIVE=1 MIX_TARGET=host mix test
 ```
 
-> 実機に電池バックアップ付き RTC は無く(`/dev/rtc0` も無し)、時計は毎ブート
-> 1970 年起点に戻る。KIOSK ヘッダの時計は未設定時「時刻未設定」表示になるので、
-> ブート後に `settime.sh` で合わせる。
+## 実機での注意点
 
-過去に使用していた release 単位の SFTP hot reload 手順は `docs/worklog/` に履歴として残している。
-現在の標準 workflow には含めない。
+- **時刻:** `/dev/rtc0` が使えない構成でも i.MX28 SoC 内の RTC register は存在する。
+  System の `restore_brain_rtc` と、今回移植した `BrainClock` がそれぞれ時刻同期を行うため、
+  競合や書き込み可否を実機で確認する。旧 `scripts/settime.sh` は以前の RTC 前提の補助ツールであり、
+  現行の推奨手順としては扱わない。
+- **Wi-Fi:** VintageNet が設定を管理する。IEx で `VintageNet.info()` を確認できる。
+  設定画面の保存では再接続が起こるため、Wi-Fi 以外の復旧手段を用意して試す。
+- **音声:** 主経路は USB audio の方針。音声素材と USB device は別途準備する。
+  素材なしで動く画面と、素材が揃わないと利用できないデモを区別する。
+- **バックライト:** `Backlight` API があっても現在の DTB で物理調光ができるとは限らない。
+  既存 [ADR 0003](docs/adr/0003-バックライト制御線_調査結論.md) の判断は変更していない。
+- **バッテリー:** 充電制御の PMU register 書き込みは安全性の検証まで無効のままとする。
 
-## モジュール構成
+## スクリーンショット
 
-| モジュール | 役割 |
+以下は**移植前の旧 4 画面 UI**の実機記録。新 UI の実行結果ではない。
+新 UI の実機確認後に撮り直す（[ロードマップ P1](docs/port-roadmap.md)）。
+
+| 旧ホーム | 旧タッチ |
 |---|---|
-| `HelloKioskBrain.Native` | `LovyanGFX` / MovingIcons に委譲する薄い adapter（init_display / render / start / stop） |
-| `HelloKioskBrain.Draw` | 既存 KIOSK API を LovyanGFX command tuple に変換する純粋関数（clear/rect/line/circle/text…、日本語 jp8〜jp40） |
-| `HelloKioskBrain.Kiosk` | KIOSK デモ GUI（下部バー7ボタン=ホーム/タッチ/キー/デモ/カメラ/予備2/電源を切る、物理キー15/104/109/110/111 と対応、電池/IP/時計、電源OFF確認）。通常画面は `lovyangfx_elixir` 経由で描画し、カメラ画面では framebuffer 所有権を `CameraMonitor` / `camera_viewer` に渡す |
-| `HelloKioskBrain.Backlight` | LCD バックライト sysfs ラッパ（現状**未使用**。PW-SH6 はバックライトを独立制御できないと実機で判明。[調査結論](docs/adr/0003-バックライト制御線_調査結論.md)参照） |
-| `HelloKioskBrain.Fb` | 旧・シャドウフレーム描画（フォールバックとして残置） |
-| `HelloKioskBrain.Font` | 旧・5×7 ビットマップフォント（Fb 用、残置） |
-| `HelloKioskBrain.Input` | evdev 読取り（タッチ event1 / キー event0）。タッチは実機校正 + Y 反転済み |
-| `HelloKioskBrain.CameraMonitor` | Atom Cam 2 の `/snapshot.jpg` を `:httpc` で取得し、persistent Erlang Port の `camera_viewer` へ 1 frame ずつ渡す。ACK 後に次 frame を取得して backpressure / retry / timing metrics を管理 |
-| `HelloKioskBrain.Battery` | i.MX28 HW_POWER から電池電圧/充電状態（devmem 経由） |
-| `HelloKioskBrain.Display` | 旧・最小 KIOSK 画面（Kiosk に置換、参考として残置） |
-| `HelloKioskBrain.SshAuth` | NervesSSH 用の PW-SH6 固有 lightweight password callback（公開鍵認証 / IEx / exec / SFTP 自体は NervesSSH が担当） |
+| ![旧ホーム](docs/worklog/assets/kiosk_home_ja.png) | ![旧タッチ](docs/worklog/assets/kiosk_touch_ja.png) |
 
-補助バイナリ `devmem`（`/dev/mem` mmap R/W）は `src/devmem.c` から KIOSK の `Makefile` / `elixir_make` で ARMv5 向けに生成する。
-ネットワークカメラ用の `camera_viewer` は `src/camera_viewer.c` から target build 時だけ生成する。CLI の local JPEG benchmark mode に加え、`{:packet, 4}` の persistent Erlang Port mode を持ち、libjpeg-turbo で JPEG を縮小 decode して RGB565 framebuffer へ一括転送する。
-LovyanGFX の取得・build・NIF は `lovyangfx_elixir` が担当する。
+| 旧キー | 旧デモ |
+|---|---|
+| ![旧キー](docs/worklog/assets/kiosk_keys_ja.png) | ![旧デモ](docs/worklog/assets/kiosk_demo_ja.png) |
 
-## ドキュメント
+## ドキュメントの入口
 
-設計判断・調査記録の一覧は [`docs/README.md`](docs/README.md) を参照。
-
-- `docs/adr/`: 実装や今後の方針に影響する決定・確定した技術的結論
-- `docs/worklog/`: 提案、調査過程、実装報告、手順、質問書、引き継ぎなどの時系列記録
+- [移植ロードマップ](docs/port-roadmap.md): 次の作業、優先順位、完了条件、テスト記録の方法
+- [移植機能・設計差分](docs/feature-port-20261113.md): 元アプリとの差分、維持した構成、配布素材
+- [設計判断と実機知見](docs/README.md): ADR / worklog の入口
+- [System 全体の構成](../../docs/README.md): Nerves System / application / boot assets の境界
+- [デモ素材のクレジット](NOTICE.original-demos): 同梱データおよび未同梱素材の権利情報

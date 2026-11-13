@@ -80,3 +80,7 @@ standard `mix upload` で inactive slot へ更新し、p4 は保持する。ア�
 2. [`adr/README.md`](adr/README.md) で現在の設計判断を確認する。
 3. remote update は [`mix-upload.md`](mix-upload.md)、USB mode の操作は [`usb-mode.md`](usb-mode.md) を参照する。
 4. 動作例の実機知見は [`../examples/hello_kiosk/docs/`](../examples/hello_kiosk/docs/) を参照する。
+5. `hello_kiosk_brain` からの追加機能については
+   [移植ロードマップ](../examples/hello_kiosk/docs/port-roadmap.md) と
+   [移植記録](../examples/hello_kiosk/docs/feature-port-20261113.md) を参照する。
+   移植済みのコードと PW-SH6 での動作確認を混同しない。

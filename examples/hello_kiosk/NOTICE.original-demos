@@ -1,0 +1,50 @@
+hello_kiosk_brain — NOTICE / クレジット
+
+本ソフトウェアのデモ「パパパの二重唱」(設定: デモ → パパパの二重唱)で使う素材のクレジットです。
+素材そのもの(priv/audio/papapa/)はこのリポジトリに含めていません。生成スクリプトは
+scripts/gen_papapa_assets.py にありますが、生成元と素材の利用許諾を利用者が確認する必要があります。
+移植の配布・検証課題は docs/port-roadmap.md を参照してください。
+
+■ 曲
+  W. A. モーツァルト《魔笛》K.620 より「パ・パ・パ」(パブリックドメイン)
+
+■ 伴奏
+  flutetunes.com 公開の編曲(MIDI「Pa, pa, pa from The Magic Flute」、Two Flutes and Piano)を元に作成。
+  flutetunes.com の利用規約(個人の非営利・教育・公開演奏の目的に限る)に従い、自分の機体での利用に限る。
+  https://www.flutetunes.com/terms.php
+
+■ 歌声(Open JTalk で合成)
+  パパゲーノ: HTS Voice "NIT ATR503 M001"
+    Copyright (c) 2003-2012 Nagoya Institute of Technology (2003-2008 Tokyo Institute of Technology)
+    Creative Commons Attribution 3.0 license — https://creativecommons.org/licenses/by/3.0/
+    https://open-jtalk.sourceforge.net/readme_hts_voice_nitech_jp_atr503_m001.php
+  パパゲーナ: MMDAgent Example "Mei" (mei_normal.htsvoice)
+    Copyright (c) Nagoya Institute of Technology
+    Creative Commons Attribution 3.0 license — https://creativecommons.org/licenses/by/3.0/
+    (原文の COPYRIGHT.txt は未確認。確認でき次第、指定の表記に合わせる)
+  Open JTalk: Modified BSD license — https://open-jtalk.sourceforge.net/
+
+■ 描画
+  LovyanGFX (BSD 系) — https://github.com/lovyan03/LovyanGFX
+  キャラクターはスタックチャン風のオリジナル(描画コマンドによる描き起こし)。
+
+■ デモ「世界時計」「プラネタリウム」のデータ
+  世界地図(陸地): Natural Earth 1:110m land(パブリックドメイン)— https://www.naturalearthdata.com/
+  星表・星座線: d3-celestial(stars.6.json / constellations.lines.json)
+    Copyright (c) 2015, Olaf Frohn. BSD 3-Clause License — https://github.com/ofrohn/d3-celestial
+  (priv/demo/*.term に変換して同梱。scripts/gen_demo_data.py)
+
+■ d3-celestial BSD 3-Clause license text (for transformed priv/demo/stars.term)
+
+Copyright (c) 2015, Olaf Frohn
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

@@ -56,6 +56,7 @@ config :hello_kiosk_brain,
   target: :brain,
   boot_trace: true,
   kiosk_start_delay_ms: 3_000,
+  enable_charger: false,
   camera_monitor: [
     snapshot_url: nil,
     interval_ms: 500,

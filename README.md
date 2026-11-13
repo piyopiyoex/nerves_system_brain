@@ -10,6 +10,10 @@ LCD 854×480）向けのカスタム Nerves システム。
 > 自己責任で行ってください(本体 eMMC には触らず microSD 起動のみで作業しています)。
 
 動作例として `examples/hello_kiosk/` に `hello_kiosk_brain` を同梱する。
+2026-11-13 に元の `kurokouji/hello_kiosk_brain` から機能を追加移植したが、
+**この移植後の firmware / 実機動作は未検証**。開発者向けの進行状況は
+[移植ロードマップ](examples/hello_kiosk/docs/port-roadmap.md)、
+機能一覧と制約は[移植記録](examples/hello_kiosk/docs/feature-port-20261113.md) を参照。
 
 設計の全体像と「標準 Nerves に寄せる部分 / Brain 固有として残す部分」の考え方は
 [アーキテクチャ概要](docs/README.md) を参照。
@@ -42,7 +46,7 @@ LCD 854×480）向けのカスタム Nerves システム。
 | `busybox.fragment`                              | USB NCM / mode switch に必要な BusyBox `ln` / `tr` / `sync` applet を追加                 |
 | `boot/imx28-pwsh6-peripheral.{dts,dtb}`        | USB NCM 用 Device Tree（[HOST / NCM の切り替え](docs/usb-mode.md)）              |
 | `docs/usb-mode.md`                              | HOST / NCM の切り替え方と Device Tree の管理方針                                |
-| `examples/hello_kiosk/`                         | PW-SH6 で動作確認済みの Elixir KIOSK 動作例                                       |
+| `examples/hello_kiosk/`                         | Elixir KIOSK 動作例（旧構成は実機確認済み。2026-11-13 機能移植後は未検証）         |
 | `docs/`                                         | アーキテクチャ概要と ADR（設計判断）                                              |
 
 ## ビルド

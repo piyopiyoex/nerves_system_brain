@@ -46,6 +46,16 @@ defmodule HelloKioskBrainTest do
            ]
   end
 
+  test "Wi-Fi settings validate SSID and WPA2 passphrase without touching host networking" do
+    alias HelloKioskBrain.WifiConfig
+
+    assert :ok == WifiConfig.validate("home-network", "secret123")
+    assert {:error, :ssid} == WifiConfig.validate("", "secret123")
+    assert {:error, :pw} == WifiConfig.validate("home", "short")
+    assert {:error, :chars} == WifiConfig.validate("home\n", "secret123")
+    assert WifiConfig.max_networks() == 6
+  end
+
   test "all Draw commands are accepted by LovyanGFX" do
     commands = [
       HelloKioskBrain.Draw.clear(0),
@@ -56,10 +66,11 @@ defmodule HelloKioskBrainTest do
       HelloKioskBrain.Draw.line(1, 2, 3, 4, 0x112233),
       HelloKioskBrain.Draw.circle(1, 2, 3, 0x112233),
       HelloKioskBrain.Draw.fcircle(1, 2, 3, 0x112233),
+      HelloKioskBrain.Draw.tri(1, 2, 3, 4, 5, 6, 0x112233),
       HelloKioskBrain.Draw.text(1, 2, "tl", "jp8", 0x112233, "Brain")
     ]
 
     assert {:ok, normalized} = commands |> List.flatten() |> LovyanGFX.Command.normalize()
-    assert length(normalized) == 11
+    assert length(normalized) == 12
   end
 end

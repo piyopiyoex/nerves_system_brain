@@ -10,6 +10,7 @@ defmodule HelloKioskBrain.Input do
   pid as messages:
 
     {:touch, x, y}                # mapped to screen pixels (854x480), on release/press
+    {:pen, :down | :move | :up, x, y}  # 触れている間の座標(手書き用。サンプルごと = EV_SYN ごと)
     {:key, code, :down|:up|:repeat}  # :repeat = evdev autorepeat (val=2), 通常は無視
   """
   use GenServer
@@ -53,6 +54,15 @@ defmodule HelloKioskBrain.Input do
   def handle_cast({:subscribe, pid}, state), do: {:noreply, %{state | sub: pid}}
 
   @impl true
+  # 触れている間は、サンプルの区切り(EV_SYN)ごとに座標を {:pen, ...} で送る(手書きメモ用)。
+  # state の :pen は後から足した項目なので Map.get/put で扱う(ホットロードでも落ちない)
+  def handle_info({:ev, :touch, 0, 0, _}, %{down: true} = state) do
+    {px, py} = screen_xy(state)
+    phase = if Map.get(state, :pen, false), do: :move, else: :down
+    notify(state, {:pen, phase, px, py})
+    {:noreply, Map.put(state, :pen, true)}
+  end
+
   def handle_info({:ev, :touch, type, code, value}, state) do
     state =
       cond do
@@ -86,20 +96,26 @@ defmodule HelloKioskBrain.Input do
 
   defp touch_btn(state, 0) do
     # release: emit the last coordinate, calibrated to screen pixels
-    px = map_axis(state.x, @cal_x_min, @cal_x_max, @scr_w - 1)
-    # Y is inverted vs the screen (touching the top switched the bottom tabs).
-    py = @scr_h - 1 - map_axis(state.y, @cal_y_min, @cal_y_max, @scr_h - 1)
+    {px, py} = screen_xy(state)
+    if Map.get(state, :pen, false), do: notify(state, {:pen, :up, px, py})
     notify(state, {:touch, px, py})
-    %{state | down: false}
+    %{state | down: false} |> Map.put(:pen, false)
   end
 
-  defp touch_btn(state, _), do: state
+  defp screen_xy(state) do
+    px = map_axis(state.x, @cal_x_min, @cal_x_max, @scr_w - 1)
+    # Y is inverted vs the screen (touching the top switched the bottom tabs).
+    py = (@scr_h - 1) - map_axis(state.y, @cal_y_min, @cal_y_max, @scr_h - 1)
+    {px, py}
+  end
 
   # Map a raw ADC value in [lo, hi] to [0, out], clamped.
   defp map_axis(raw, lo, hi, out) do
     v = div((raw - lo) * out, hi - lo)
     v |> max(0) |> min(out)
   end
+
+  defp touch_btn(state, _), do: state
 
   defp notify(%{sub: pid}, msg) when is_pid(pid), do: send(pid, msg)
   defp notify(_, _), do: :ok
@@ -115,9 +131,7 @@ defmodule HelloKioskBrain.Input do
 
   defp read_loop(fd, parent, tag) do
     case :file.read(fd, 16) do
-      {:ok,
-       <<_sec::little-32, _usec::little-32, type::little-16, code::little-16,
-         value::little-signed-32>>} ->
+      {:ok, <<_sec::little-32, _usec::little-32, type::little-16, code::little-16, value::little-signed-32>>} ->
         send(parent, {:ev, tag, type, code, value})
         read_loop(fd, parent, tag)
 
